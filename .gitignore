@@ -1,0 +1,25 @@
+# Python 虚拟环境
+venv/
+env/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# 环境变量（包含敏感 API Key，绝对不能提交！）
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+Thumbs.db
