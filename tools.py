@@ -10,8 +10,16 @@
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List
+
+
+# ============================================================
+# 时区配置
+# ============================================================
+# 北京时间（东八区）— Streamlit Cloud 服务器使用 UTC 时区，
+# 因此必须显式指定时区，否则 datetime.now() 会慢 8 小时
+_CST = timezone(timedelta(hours=8), name="Asia/Shanghai")
 
 
 # ============================================================
@@ -20,12 +28,12 @@ from typing import Any, Dict, List
 
 def get_current_time() -> str:
     """
-    获取当前系统时间。
+    获取当前北京时间（东八区）。
     返回格式化的日期时间字符串，用于演示 Agent 调用本地工具的能力。
     """
-    now = datetime.now()
+    now = datetime.now(_CST)
     # 使用中文友好的日期时间格式
-    return now.strftime("%Y年%m月%d日 %H:%M:%S (星期%w)")
+    return now.strftime("%Y年%m月%d日 %H:%M:%S (星期%w) 北京时间")
 
 
 def query_shipping_schedule(route: str) -> str:
