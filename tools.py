@@ -152,3 +152,10 @@ TOOL_MAPPING: Dict[str, Any] = {
 
 # TOOL_NAMES: 工具名称列表，供 app.py 侧边栏展示
 TOOL_NAMES: List[str] = [t["function"]["name"] for t in TOOL_DESCRIPTIONS]
+
+# TOOL_DISPLAY_NAMES: 工具函数名 -> 自然语言展示名
+# app.py 侧边栏使用此映射展示服务能力，对用户隐藏内部函数名
+TOOL_DISPLAY_NAMES: Dict[str, str] = {
+    "get_current_time": "📅 实时时间查询",
+    "query_shipping_schedule": "🚢 散货船期查询",
+}

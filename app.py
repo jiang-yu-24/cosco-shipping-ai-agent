@@ -25,7 +25,7 @@ if "DEEPSEEK_API_KEY" in st.secrets:
     os.environ["DEEPSEEK_API_KEY"] = st.secrets["DEEPSEEK_API_KEY"]
 
 # 导入本项目的核心模块
-from tools import TOOL_NAMES, TOOL_DESCRIPTIONS
+from tools import TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_DISPLAY_NAMES
 from agent_core import run_agent
 
 # ============================================================
@@ -65,18 +65,12 @@ with st.sidebar:
     st.subheader("🔧 服务能力")
     st.caption(f"共 {len(TOOL_NAMES)} 项服务")
 
-    for i, tool in enumerate(TOOL_DESCRIPTIONS, 1):
+    for tool in TOOL_DESCRIPTIONS:
         tool_info = tool["function"]
-        with st.expander(f"{tool_info['name']}", expanded=False):
-            st.markdown(f"**功能：** {tool_info['description']}")
-            # 提取参数信息
-            params = tool_info.get("parameters", {}).get("properties", {})
-            required = tool_info.get("parameters", {}).get("required", [])
-            if params:
-                st.markdown("**参数：**")
-                for pname, pinfo in params.items():
-                    req_mark = " *（必填）*" if pname in required else ""
-                    st.caption(f"  • `{pname}` ({pinfo.get('type', 'any')}){req_mark}")
+        func_name = tool_info["name"]
+        display_name = TOOL_DISPLAY_NAMES.get(func_name, func_name)
+        with st.expander(display_name, expanded=False):
+            st.caption(tool_info["description"])
 
     st.divider()
 
