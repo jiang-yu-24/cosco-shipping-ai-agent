@@ -25,7 +25,7 @@ if "DEEPSEEK_API_KEY" in st.secrets:
     os.environ["DEEPSEEK_API_KEY"] = st.secrets["DEEPSEEK_API_KEY"]
 
 # 导入本项目的核心模块
-from tools import TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_DISPLAY_NAMES
+from tools import TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_DISPLAY_NAMES, parse_file_content, set_uploaded_file, get_uploaded_file_info
 from agent_core import run_agent
 
 # ============================================================
@@ -61,6 +61,34 @@ with st.sidebar:
     st.markdown("*智能航运服务平台*")
     st.divider()
 
+    # --- 文件上传 ---
+    st.subheader("📎 文件上传")
+    uploaded_file = st.file_uploader(
+        "上传文件进行分析",
+        type=["pdf", "xlsx", "xls", "csv", "txt"],
+        help="支持 PDF、Excel、CSV、TXT 格式。上传后可在对话中针对文件内容提问。",
+        label_visibility="collapsed",
+    )
+
+    # 处理文件上传
+    if uploaded_file is not None:
+        # 用文件名+大小作为简易指纹，避免重复解析
+        file_key = f"{uploaded_file.name}_{uploaded_file.size}"
+        if "last_file_key" not in st.session_state or st.session_state.last_file_key != file_key:
+            with st.spinner("正在解析文件..."):
+                file_text = parse_file_content(uploaded_file.getvalue(), uploaded_file.name)
+            set_uploaded_file(file_text, uploaded_file.name)
+            st.session_state.last_file_key = file_key
+            st.session_state.file_loaded = True
+            st.success(f"✅ 已加载「{uploaded_file.name}」")
+        elif st.session_state.get("file_loaded"):
+            st.info(f"📄 当前文件：「{uploaded_file.name}」")
+
+    if st.session_state.get("file_loaded"):
+        st.caption("💡 可针对文件内容提问，如'这份提单的托运人是谁？'")
+
+    st.divider()
+
     # --- 当前挂载工具列表 ---
     st.subheader("🔧 服务能力")
     st.caption(f"共 {len(TOOL_NAMES)} 项服务")
@@ -94,6 +122,8 @@ st.markdown("中远海运散货运输智能助理，为您提供船期查询、�
 # --- 初始化会话状态 ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
+    st.session_state.file_loaded = False
+    st.session_state.last_file_key = None
     # 首次进入时显示欢迎消息
     st.session_state.messages.append({
         "role": "assistant",
@@ -101,8 +131,9 @@ if "messages" not in st.session_state:
             "👋 您好！我是**远航助手**，您的智能航运服务助理。\n\n"
             "我目前可以帮您：\n"
             "• 📅 查询当前日期和时间\n"
-            "• 🚢 查询散货船期信息（支持：西澳-青岛、巴西-天津、印尼-湛江）\n\n"
-            "请随时向我提问！"
+            "• 🚢 查询散货船期信息（支持：西澳-青岛、巴西-天津、印尼-湛江）\n"
+            "• 📎 分析上传的文件（支持 PDF / Excel / CSV / TXT）\n\n"
+            "请上传文件或直接向我提问！"
         ),
     })
 
@@ -119,7 +150,7 @@ user_input = st.chat_input(
 
 # 输入框下方的提示语
 st.caption(
-    "💬 例如：*现在几点了？*  或  *查一下西澳-青岛的船期*  或  *巴西到天津的船什么时候到？*"
+    "💬 例如：*现在几点了？*  |  *查一下西澳-青岛的船期*  |  *这份提单的托运人是谁？*"
 )
 
 # --- 处理用户输入 ---
@@ -131,8 +162,6 @@ if user_input:
 
     # 2. 调用 Agent 核心引擎（传递历史消息上下文）
     with st.chat_message("assistant"):
-        # 构建历史消息（不含 system prompt，agent_core 会自动添加）
-        # 我们传递完整的 messages 作为上下文
         with st.spinner("🤔 正在思考中..."):
             try:
                 # 传入当前对话历史（不含最新的 user 消息，它在 run_agent 内部会追加）
@@ -144,8 +173,19 @@ if user_input:
                     if m["role"] in ("user", "assistant")
                 ]
 
+                # 如果用户已上传文件，将文件内容作为上下文注入到用户问题中
+                query = user_input
+                if st.session_state.get("file_loaded"):
+                    file_content, file_name = get_uploaded_file_info()
+                    if file_content:
+                        query = (
+                            f"【用户已上传文件「{file_name}」，文件内容如下】\n\n"
+                            f"{file_content}\n\n"
+                            f"【文件内容结束。用户的问题是】\n{user_input}"
+                        )
+
                 response = run_agent(
-                    user_query=user_input,
+                    user_query=query,
                     chat_history=history_for_agent if history_for_agent else None,
                 )
                 st.markdown(response)
