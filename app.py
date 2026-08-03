@@ -127,30 +127,34 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# --- 文件上传区（紧凑模式） ---
-uploaded_file = st.file_uploader(
-    "📎 上传文件进行分析（支持 PDF / Excel / CSV / TXT）",
-    type=["pdf", "xlsx", "xls", "csv", "txt"],
-    help="上传后可在对话中针对文件内容提问，例如'这份提单的托运人是谁？'",
-    label_visibility="visible",
-    key="file_uploader_main",
-)
+# --- 聊天输入区（输入框 + 右侧上传按钮） ---
+col_input, col_upload = st.columns([20, 1])
+with col_input:
+    user_input = st.chat_input(
+        placeholder="请输入您的问题，或点击右侧 📎 上传文件后提问...",
+    )
+with col_upload:
+    # 弹窗式上传，点击 📎 按钮展开文件选择
+    with st.popover("📎", use_container_width=True):
+        uploaded_file = st.file_uploader(
+            "上传文件",
+            type=["pdf", "xlsx", "xls", "csv", "txt"],
+            help="支持 PDF、Excel、CSV、TXT。上传后可在对话中对文件内容提问。",
+            label_visibility="collapsed",
+            key="file_uploader_main",
+        )
 
-# 处理文件上传
-if uploaded_file is not None:
-    file_key = f"{uploaded_file.name}_{uploaded_file.size}"
-    if "last_file_key" not in st.session_state or st.session_state.last_file_key != file_key:
-        with st.spinner("正在解析文件..."):
-            file_text = parse_file_content(uploaded_file.getvalue(), uploaded_file.name)
-        set_uploaded_file(file_text, uploaded_file.name)
-        st.session_state.last_file_key = file_key
-        st.session_state.file_loaded = True
-        st.rerun()
-
-# --- 聊天输入框 ---
-user_input = st.chat_input(
-    placeholder="请输入您的问题，如已上传文件可针对文件内容提问...",
-)
+        # 处理文件上传（在 popover 内完成解析+状态更新）
+        if uploaded_file is not None:
+            file_key = f"{uploaded_file.name}_{uploaded_file.size}"
+            if "last_file_key" not in st.session_state or st.session_state.last_file_key != file_key:
+                with st.spinner("正在解析..."):
+                    file_text = parse_file_content(uploaded_file.getvalue(), uploaded_file.name)
+                set_uploaded_file(file_text, uploaded_file.name)
+                st.session_state.last_file_key = file_key
+                st.session_state.file_loaded = True
+                st.success(f"✅ 已加载")
+                st.rerun()
 
 # 输入框下方的提示语
 st.caption(
