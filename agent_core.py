@@ -114,7 +114,7 @@ def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = No
             )
         except Exception as e:
             # 网络异常、API Key无效、额度不足等场景
-            return f"❌ 调用 DeepSeek API 时发生错误：{str(e)}\n请检查网络连接和 API Key 配置。"
+            return f"❌ 服务暂时不可用，请稍后重试。"
 
         # 提取模型返回的 assistant 消息
         assistant_msg = response.choices[0].message
@@ -242,6 +242,6 @@ def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = No
             messages=messages,
             temperature=0.3,
         )
-        return final_response.choices[0].message.content or "（Agent 无法生成有效回答）"
+        return final_response.choices[0].message.content or "（无法生成有效回答，请重试）"
     except Exception as e:
         return f"❌ Agent 兜底调用失败：{str(e)}"

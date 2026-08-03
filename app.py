@@ -3,9 +3,26 @@ Streamlit 前端界面 — 中远海运散货 AI 助理「远航助手」
 ====================================================
 基于 Streamlit 构建的聊天式 AI Agent 交互界面。
 布局：左侧边栏（工具列表 + 设置）+ 右侧主区（聊天窗口）。
+
+环境适配说明：
+  - 本地开发：从 .env 文件读取 DEEPSEEK_API_KEY（通过 python-dotenv）
+  - Streamlit Cloud：从 st.secrets 读取 DEEPSEEK_API_KEY（在 Cloud 控制台配置）
+    app.py 会在导入 agent_core 前将 st.secrets 桥接到 os.environ，
+    这样 agent_core.py 不需要感知运行环境差异。
 """
 
+import os
 import streamlit as st
+
+# ============================================================
+# 环境适配：将 Streamlit Cloud Secrets 桥接到 os.environ
+# ============================================================
+# Streamlit Cloud 的 Secrets 不会自动注入到环境变量中，
+# 因此需要在导入 agent_core 之前手动完成这个映射。
+# 如果 st.secrets 中不存在该 key（本地开发场景），则跳过，
+# agent_core 内部的 python-dotenv 会从 .env 文件中加载。
+if "DEEPSEEK_API_KEY" in st.secrets:
+    os.environ["DEEPSEEK_API_KEY"] = st.secrets["DEEPSEEK_API_KEY"]
 
 # 导入本项目的核心模块
 from tools import TOOL_NAMES, TOOL_DESCRIPTIONS
@@ -15,11 +32,25 @@ from agent_core import run_agent
 # 页面配置
 # ============================================================
 st.set_page_config(
-    page_title="远航助手 - 中远海运散货 AI Agent",
+    page_title="远航助手 - 中远海运散货运输智能助理",
     page_icon="🚢",
     layout="wide",
     initial_sidebar_state="expanded",
+    menu_items={
+        "Get Help": None,
+        "Report a bug": None,
+        "About": None,
+    },
 )
+
+# 隐藏 Streamlit 默认页脚与工具栏
+st.markdown("""
+<style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+</style>
+""", unsafe_allow_html=True)
 
 # ============================================================
 # 左侧边栏
@@ -27,12 +58,12 @@ st.set_page_config(
 with st.sidebar:
     # --- Logo & 标题 ---
     st.markdown("# 🚢 远航助手")
-    st.markdown("*COSCO Shipping Bulk AI Agent*")
+    st.markdown("*智能航运服务平台*")
     st.divider()
 
     # --- 当前挂载工具列表 ---
-    st.subheader("🔧 当前挂载工具")
-    st.caption(f"共 {len(TOOL_NAMES)} 个工具可供 Agent 调用")
+    st.subheader("🔧 服务能力")
+    st.caption(f"共 {len(TOOL_NAMES)} 项服务")
 
     for i, tool in enumerate(TOOL_DESCRIPTIONS, 1):
         tool_info = tool["function"]
@@ -56,9 +87,7 @@ with st.sidebar:
 
     # --- 底部信息 ---
     st.divider()
-    st.caption("💡 Powered by DeepSeek + Streamlit")
-    st.caption("🖥️ 适配 Apple Silicon (M系列)")
-    st.caption(f"📦 Python 3 | macOS")
+    st.caption("中远海运散货运输有限公司")
 
 # ============================================================
 # 右侧主区域 — 聊天窗口
@@ -66,7 +95,7 @@ with st.sidebar:
 
 # 页面标题
 st.title("🚢 远航助手")
-st.markdown("中远海运散货运输 AI 智能助理 —— 支持船期查询、时间查询等功能")
+st.markdown("中远海运散货运输智能助理，为您提供船期查询、航运信息等服务")
 
 # --- 初始化会话状态 ---
 if "messages" not in st.session_state:
@@ -75,7 +104,7 @@ if "messages" not in st.session_state:
     st.session_state.messages.append({
         "role": "assistant",
         "content": (
-            "👋 您好！我是**远航助手**，中远海运散货运输 AI 智能助理。\n\n"
+            "👋 您好！我是**远航助手**，您的智能航运服务助理。\n\n"
             "我目前可以帮您：\n"
             "• 📅 查询当前日期和时间\n"
             "• 🚢 查询散货船期信息（支持：西澳-青岛、巴西-天津、印尼-湛江）\n\n"
@@ -130,6 +159,6 @@ if user_input:
                 st.session_state.messages.append({"role": "assistant", "content": response})
 
             except Exception as e:
-                error_msg = f"❌ 系统错误：{str(e)}\n请检查 API Key 配置和网络连接。"
+                error_msg = f"❌ 系统繁忙，请稍后重试。如持续出现此问题，请联系管理员。"
                 st.error(error_msg)
                 st.session_state.messages.append({"role": "assistant", "content": error_msg})
