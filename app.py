@@ -61,33 +61,18 @@ with st.sidebar:
     st.markdown("*智能航运服务平台*")
     st.divider()
 
-    # --- 文件上传 ---
-    st.subheader("📎 文件上传")
-    uploaded_file = st.file_uploader(
-        "上传文件进行分析",
-        type=["pdf", "xlsx", "xls", "csv", "txt"],
-        help="支持 PDF、Excel、CSV、TXT 格式。上传后可在对话中针对文件内容提问。",
-        label_visibility="collapsed",
-    )
-
-    # 处理文件上传
-    if uploaded_file is not None:
-        # 用文件名+大小作为简易指纹，避免重复解析
-        file_key = f"{uploaded_file.name}_{uploaded_file.size}"
-        if "last_file_key" not in st.session_state or st.session_state.last_file_key != file_key:
-            with st.spinner("正在解析文件..."):
-                file_text = parse_file_content(uploaded_file.getvalue(), uploaded_file.name)
-            set_uploaded_file(file_text, uploaded_file.name)
-            st.session_state.last_file_key = file_key
-            st.session_state.file_loaded = True
-            st.success(f"✅ 已加载「{uploaded_file.name}」")
-        elif st.session_state.get("file_loaded"):
-            st.info(f"📄 当前文件：「{uploaded_file.name}」")
-
+    # --- 文件状态 ---
     if st.session_state.get("file_loaded"):
-        st.caption("💡 可针对文件内容提问，如'这份提单的托运人是谁？'")
-
-    st.divider()
+        st.subheader("📎 已加载文件")
+        _, file_name = get_uploaded_file_info()
+        st.success(f"📄 {file_name}")
+        st.caption("💡 可在对话框中对文件内容提问")
+        if st.button("清除文件", use_container_width=True):
+            set_uploaded_file("", "")
+            st.session_state.file_loaded = False
+            st.session_state.last_file_key = None
+            st.rerun()
+        st.divider()
 
     # --- 当前挂载工具列表 ---
     st.subheader("🔧 服务能力")
@@ -142,10 +127,29 @@ for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
+# --- 文件上传区（紧凑模式） ---
+uploaded_file = st.file_uploader(
+    "📎 上传文件进行分析（支持 PDF / Excel / CSV / TXT）",
+    type=["pdf", "xlsx", "xls", "csv", "txt"],
+    help="上传后可在对话中针对文件内容提问，例如'这份提单的托运人是谁？'",
+    label_visibility="visible",
+    key="file_uploader_main",
+)
+
+# 处理文件上传
+if uploaded_file is not None:
+    file_key = f"{uploaded_file.name}_{uploaded_file.size}"
+    if "last_file_key" not in st.session_state or st.session_state.last_file_key != file_key:
+        with st.spinner("正在解析文件..."):
+            file_text = parse_file_content(uploaded_file.getvalue(), uploaded_file.name)
+        set_uploaded_file(file_text, uploaded_file.name)
+        st.session_state.last_file_key = file_key
+        st.session_state.file_loaded = True
+        st.rerun()
+
 # --- 聊天输入框 ---
-# Streamlit 的 chat_input 组件提供了原生的聊天输入体验
 user_input = st.chat_input(
-    placeholder="请输入您的问题...",
+    placeholder="请输入您的问题，如已上传文件可针对文件内容提问...",
 )
 
 # 输入框下方的提示语
