@@ -27,34 +27,6 @@ st.markdown("""
     footer {visibility: hidden;}
     .query-input textarea { font-size: 16px !important; }
 </style>
-<script>
-// Shift+Enter 换行，单 Enter 直接提交查询
-(function() {
-    function setupEnterSubmit() {
-        const textareas = document.querySelectorAll('textarea');
-        textareas.forEach(function(ta) {
-            if (ta._enterSubmitReady) return;
-            ta._enterSubmitReady = true;
-            ta.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    // 从 textarea 向上找最近的 stHorizontalBlock，再找其中的 primary 按钮
-                    var block = ta.closest('[data-testid="stHorizontalBlock"]');
-                    if (block) {
-                        var btn = block.querySelector('button[kind="primary"]');
-                        if (btn) { btn.click(); return; }
-                    }
-                    // 兜底：页面中最后一个 primary 按钮（查询按钮渲染在最后）
-                    var btns = document.querySelectorAll('button[kind="primary"]');
-                    if (btns.length > 0) btns[btns.length - 1].click();
-                }
-            });
-        });
-    }
-    setupEnterSubmit();
-    new MutationObserver(setupEnterSubmit).observe(document.body, {childList: true, subtree: true});
-})();
-</script>
 """, unsafe_allow_html=True)
 
 # ============================================================
@@ -155,23 +127,26 @@ else:
 st.divider()
 
 # ============================================================
-# 第2区：查询栏（后渲染 → 显示在下方）
+# 第2区：查询栏（st.form —— Enter 直接提交）
 # ============================================================
-col_input, col_btn = st.columns([8, 1])
-with col_input:
-    user_query = st.text_area(
-        "查询内容",
-        placeholder="请输入您的查询...",
-        label_visibility="collapsed",
-        height=68,
-        key=f"query_input_{st.session_state.widget_key}",
-    )
-with col_btn:
-    st.write("")
-    submit = st.button("查询", use_container_width=True, type="primary")
+# 表单内：查询框 + 按钮（Enter 直接提交）
+with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=False):
+    col_input, col_btn = st.columns([8, 1])
+    with col_input:
+        user_query = st.text_area(
+            "查询内容",
+            placeholder="Shift+Enter 换行，Enter 直接查询",
+            label_visibility="collapsed",
+            height=68,
+            key=f"query_input_{st.session_state.widget_key}",
+        )
+    with col_btn:
+        st.write("")
+        submit = st.form_submit_button("查询", use_container_width=True, type="primary")
 
+# 表单外：文件上传（独立于查询，选择文件即解析）
 uploaded_file = st.file_uploader(
-    "上传文件进行分析（支持 PDF / Excel / CSV / TXT，上传后查询将基于文件内容回答）",
+    "上传文件进行分析（支持 PDF / Excel / CSV / TXT）",
     type=["pdf", "xlsx", "xls", "csv", "txt"],
     help="上传后可在查询中对文件内容提问",
     label_visibility="visible",
