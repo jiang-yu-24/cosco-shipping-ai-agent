@@ -32,11 +32,7 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    [data-testid="stToolbar"] {visibility: hidden;}
-    [data-testid="stDecoration"] {visibility: hidden;}
-    .stAppDeployButton {display: none;}
     /* 查询输入框增大字体 */
     .query-input textarea {
         font-size: 16px !important;
