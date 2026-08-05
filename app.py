@@ -37,6 +37,7 @@ if "history" not in st.session_state:
     st.session_state.file_loaded = False
     st.session_state.last_file_key = None
     st.session_state.widget_key = 0
+    st.session_state.processing = False
 
 # ============================================================
 # 左侧边栏
@@ -125,7 +126,7 @@ if st.session_state.history:
             data=pdf_data, file_name=pdf_name,
             mime="application/pdf", type="primary",
         )
-else:
+elif not st.session_state.processing:
     st.info(
         "欢迎使用远航助手！请在下方框内输入指令。\n\n"
         "试试这些：\n"
@@ -160,6 +161,7 @@ with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=Fa
 # 第3区：查询处理
 # ============================================================
 if submit and user_query.strip():
+    st.session_state.processing = True
     status_placeholder.info("🤔 正在分析中，请稍候...")
 
     try:
@@ -207,10 +209,12 @@ if submit and user_query.strip():
         st.session_state.file_loaded = False
         st.session_state.last_file_key = None
         st.session_state.widget_key += 1
+        st.session_state.processing = False
         status_placeholder.empty()
         st.rerun()
 
     except Exception:
+        st.session_state.processing = False
         status_placeholder.error("❌ 系统繁忙，请稍后重试。")
 
 elif submit and not user_query.strip():
