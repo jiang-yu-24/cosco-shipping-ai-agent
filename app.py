@@ -26,19 +26,19 @@ st.markdown("""
 <style>
     footer {visibility: hidden;}
     .query-input textarea { font-size: 16px !important; }
-    /* 查询提交按钮：正方形圆角 + 放大箭头 */
+    /* 查询提交按钮：正方形圆角，高度对齐输入框 */
     form button[kind="primary"] {
         border-radius: 10px !important;
         font-size: 22px !important;
-        width: 48px !important;
-        height: 48px !important;
-        min-width: 48px !important;
-        max-width: 48px !important;
+        width: 68px !important;
+        height: 68px !important;
+        min-width: 68px !important;
+        max-width: 68px !important;
         padding: 0 !important;
     }
-    /* 按钮所在列给足宽度 */
+    /* 按钮所在列收窄到刚好容纳按钮 */
     form [data-testid="stHorizontalBlock"] > div:last-child {
-        flex: 0 0 56px !important;
+        flex: 0 0 72px !important;
     }
 </style>
 """, unsafe_allow_html=True)
