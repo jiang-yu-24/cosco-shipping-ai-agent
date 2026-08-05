@@ -129,30 +129,24 @@ st.divider()
 # ============================================================
 # 第2区：查询栏（st.form —— Enter 直接提交）
 # ============================================================
-# 表单内：textarea + HTML 提交按钮（原生CSS可控，64×64正方形）
+# 表单：textarea + 提交按钮
 with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=False):
-    col_input, col_btn = st.columns([7, 1])
-    with col_input:
-        user_query = st.text_area(
-            "查询内容",
-            placeholder="Shift+Enter 换行，Enter 直接查询",
-            label_visibility="collapsed",
-            height=64,
-            key=f"query_input_{st.session_state.widget_key}",
-        )
-    with col_btn:
-        # HTML submit 按钮 — 完全CSS可控，64×64正方形
-        st.markdown("""
-            <button type="submit" style="
-                width: 64px; height: 64px;
-                font-size: 26px; line-height: 64px;
-                border: none; border-radius: 10px;
-                background: #1a6fb5; color: #fff;
-                cursor: pointer; padding: 0;
-            ">↑</button>
-        """, unsafe_allow_html=True)
-        # 隐藏的 Streamlit 按钮，作为 Enter 键提交的接收器
-        submit = st.form_submit_button("_", label_visibility="collapsed")
+    user_query = st.text_area(
+        "查询内容",
+        placeholder="Shift+Enter 换行，Enter 直接查询",
+        label_visibility="collapsed",
+        height=64,
+        key=f"query_input_{st.session_state.widget_key}",
+    )
+    submit = st.form_submit_button("↑ 发送", use_container_width=True, type="primary")
+
+# 表单外：文件上传（即时解析）
+uploaded_file = st.file_uploader(
+    "📎 上传文件（PDF / Excel / CSV / TXT）",
+    type=["pdf", "xlsx", "xls", "csv", "txt"],
+    label_visibility="visible",
+    key=f"file_uploader_{st.session_state.widget_key}",
+)
 
 # 表单外：文件上传（即时解析）
 uploaded_file = st.file_uploader(
