@@ -142,7 +142,7 @@ with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=Fa
         )
     with col_btn:
         st.write("")
-        submit = st.form_submit_button("查询", use_container_width=True, type="primary")
+        submit = st.form_submit_button("↑", use_container_width=True, type="primary")
 
 # 表单外：文件上传（独立于查询，选择文件即解析）
 uploaded_file = st.file_uploader(
