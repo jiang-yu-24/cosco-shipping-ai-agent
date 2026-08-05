@@ -136,7 +136,7 @@ with col_btn:
 
 # 第二行：文件上传（占一整行）
 uploaded_file = st.file_uploader(
-    "📎 上传文件进行分析（支持 PDF / Excel / CSV / TXT，上传后查询将基于文件内容回答）",
+    "上传文件进行分析（支持 PDF / Excel / CSV / TXT，上传后查询将基于文件内容回答）",
     type=["pdf", "xlsx", "xls", "csv", "txt"],
     help="上传后可在查询中对文件内容提问，例如「这份提单的托运人是谁？」",
     label_visibility="visible",
