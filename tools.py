@@ -244,6 +244,84 @@ def search_file_content(keyword: str) -> str:
     return result
 
 
+def generate_document(doc_type: str, title: str = "", content: str = "",
+                      route: str = "", vessel: str = "", departure: str = "",
+                      arrival: str = "", cargo: str = "",
+                      consignor: str = "", consignee: str = "",
+                      recipient: str = "") -> str:
+    """
+    生成规范化 PDF 文档（船期确认函/航运报告/通用公文）。
+
+    当用户要求「生成一份船期确认函」「帮我出个报告」「起草一份通知」
+    等场景时调用此工具。生成后可下载 PDF 文件。
+
+    参数:
+        doc_type: 文档类型 — "schedule"（船期确认函）、"report"（航运报告）、"official"（通用公文）
+        title: 文档标题
+        content: 正文内容（换行分段）
+        route: [schedule] 航线
+        vessel: [schedule] 船名
+        departure: [schedule] 离港时间
+        arrival: [schedule] 到港时间
+        cargo: [schedule] 货种货量
+        consignor: [schedule] 托运人
+        consignee: [schedule] 收货人
+        recipient: [official] 主送单位
+    """
+    from pdf_utils import (
+        generate_schedule_confirmation,
+        generate_shipping_report,
+        generate_official_document,
+        store_pdf,
+    )
+
+    now = datetime.now(_CST)
+    ts = now.strftime("%Y%m%d_%H%M%S")
+
+    try:
+        if doc_type == "schedule":
+            pdf_bytes = generate_schedule_confirmation(
+                route=route or "待指定",
+                vessel=vessel or "待指定",
+                departure=departure or "待确认",
+                arrival=arrival or "待确认",
+                cargo=cargo or "待指定",
+                consignor=consignor or "待填写",
+                consignee=consignee or "待填写",
+            )
+            filename = f"船期确认函_{route or '通用'}_{ts}.pdf"
+
+        elif doc_type == "report":
+            pdf_bytes = generate_shipping_report(
+                title=title or "航运分析报告",
+                content=content or "（无正文内容）",
+            )
+            filename = f"航运报告_{ts}.pdf"
+
+        elif doc_type == "official":
+            pdf_bytes = generate_official_document(
+                title=title or "通知",
+                content=content or "（无正文内容）",
+                recipient=recipient or "",
+            )
+            filename = f"公文_{title or '通知'}_{ts}.pdf"
+
+        else:
+            return (
+                f"❌ 不支持的文档类型「{doc_type}」。"
+                f"可选类型：schedule（船期确认函）、report（航运报告）、official（通用公文）"
+            )
+
+        store_pdf(pdf_bytes, filename)
+        return (
+            f"✅ PDF 文档已生成：{filename}（{len(pdf_bytes) / 1024:.1f} KB）\n"
+            f"请告知用户点击页面上的「下载 PDF」按钮获取文件。"
+        )
+
+    except Exception as e:
+        return f"❌ PDF 生成失败：{str(e)}"
+
+
 # ============================================================
 # 工具注册表 — 供 agent_core.py 和 app.py 使用
 # ============================================================
@@ -306,6 +384,71 @@ TOOL_DESCRIPTIONS: List[Dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_document",
+            "description": (
+                "生成规范化 PDF 文档。支持三种类型："
+                "1) schedule（船期确认函）— 用于确认航线船期安排；"
+                "2) report（航运报告）— 生成分析报告；"
+                "3) official（通用公文）— 生成通知、函件等央企标准公文。"
+                "当用户要求「生成确认函」「出个报告」「起草通知」时调用此工具。"
+                "生成成功后用户可下载 PDF 文件。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "doc_type": {
+                        "type": "string",
+                        "description": "文档类型：schedule（船期确认函）、report（航运报告）、official（通用公文）",
+                        "enum": ["schedule", "report", "official"],
+                    },
+                    "title": {
+                        "type": "string",
+                        "description": "文档标题",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "正文内容，使用换行符分隔段落",
+                    },
+                    "route": {
+                        "type": "string",
+                        "description": "[schedule] 航线，如'西澳-青岛'",
+                    },
+                    "vessel": {
+                        "type": "string",
+                        "description": "[schedule] 承运船舶名称",
+                    },
+                    "departure": {
+                        "type": "string",
+                        "description": "[schedule] 预计离港时间",
+                    },
+                    "arrival": {
+                        "type": "string",
+                        "description": "[schedule] 预计到港时间",
+                    },
+                    "cargo": {
+                        "type": "string",
+                        "description": "[schedule] 货种及货量",
+                    },
+                    "consignor": {
+                        "type": "string",
+                        "description": "[schedule] 托运人名称",
+                    },
+                    "consignee": {
+                        "type": "string",
+                        "description": "[schedule] 收货人名称",
+                    },
+                    "recipient": {
+                        "type": "string",
+                        "description": "[official] 主送单位",
+                    },
+                },
+                "required": ["doc_type"],
+            },
+        },
+    },
 ]
 
 # TOOL_MAPPING: 工具名 -> 实际Python函数的映射字典
@@ -314,6 +457,7 @@ TOOL_MAPPING: Dict[str, Any] = {
     "get_current_time": get_current_time,
     "query_shipping_schedule": query_shipping_schedule,
     "search_file_content": search_file_content,
+    "generate_document": generate_document,
 }
 
 # TOOL_NAMES: 工具名称列表，供 app.py 侧边栏展示

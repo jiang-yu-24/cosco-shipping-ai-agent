@@ -18,6 +18,7 @@ from tools import (
     parse_file_content, set_uploaded_file, get_uploaded_file_info,
 )
 from agent_core import run_agent
+from pdf_utils import get_pdf
 
 # ============================================================
 # 页面配置
@@ -221,6 +222,17 @@ if st.session_state.history:
     # ============================================================
     # 历史记录
     # ============================================================
+    # PDF 下载按钮（Agent 生成文档后自动显示）
+    pdf_data, pdf_name = get_pdf()
+    if pdf_data is not None:
+        st.download_button(
+            label=f"📥 下载 {pdf_name}",
+            data=pdf_data,
+            file_name=pdf_name,
+            mime="application/pdf",
+            type="primary",
+        )
+
     if len(st.session_state.history) > 1:
         st.subheader("📜 历史记录")
         for i, h in enumerate(st.session_state.history[1:], 1):
