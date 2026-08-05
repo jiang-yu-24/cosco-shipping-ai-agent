@@ -1,245 +1,201 @@
 """
 PDF 文档生成模块 — 央企规范化公文模板
 =======================================
-基于 fpdf2 实现中文 PDF 文档生成。
+基于 reportlab 实现中文 PDF 文档生成。
 支持：船期确认函、货运报告、通用公文。
 仅供 Agent 后端调用，不在前端侧边栏展示。
-
-中文字体加载策略：
-  1. 遍历候选路径列表
-  2. glob 通配搜索常见字体目录
-  3. 调用 fc-list 命令查询系统可用中文字体
-  4. 以上均失败则使用 Helvetica（中文将显示为空白）
 """
 
-import glob
 import io
 import os
-import subprocess
-import base64
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
 
-from fpdf import FPDF
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.colors import HexColor
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+    HRFlowable,
+)
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 # 北京时间
 _CST = timezone(timedelta(hours=8), name="Asia/Shanghai")
 
-# 项目自带字体目录
+# ============================================================
+# 字体注册（reportlab 需要在使用前注册 TTF 字体）
+# ============================================================
 _PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 _FONTS_DIR = os.path.join(_PROJECT_DIR, "fonts")
+_FONT_REGISTERED = False
 
-# 中文字体候选路径（支持 glob 通配符）
-_FONT_GLOBS = [
-    # 项目自带字体（最高优先级，保证 Cloud 环境可用）
+# 候选字体文件
+_FONT_FILES = [
     os.path.join(_FONTS_DIR, "DroidSansFallback.ttf"),
-    os.path.join(_FONTS_DIR, "*.ttf"),
-    os.path.join(_FONTS_DIR, "*.ttc"),
-    os.path.join(_FONTS_DIR, "*.otf"),
-    # macOS
     "/System/Library/Fonts/PingFang.ttc",
-    "/System/Library/Fonts/STHeiti*.ttc",
-    "/System/Library/Fonts/Hiragino*.ttc",
-    "/Library/Fonts/Arial Unicode.ttf",
-    # Debian/Ubuntu (Streamlit Cloud) — fonts-noto-cjk 安装路径
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-*.ttc",
-    "/usr/share/fonts/opentype/noto/NotoSerifCJK-*.ttc",
-    "/usr/share/fonts/truetype/noto/NotoSansCJK-*.ttc",
-    "/usr/share/fonts/truetype/noto/NotoSerifCJK-*.ttc",
-    "/usr/share/fonts/noto-cjk/*.ttc",
-    "/usr/share/fonts/truetype/droid/DroidSans*.ttf",
-    "/usr/share/fonts/truetype/wqy/*.ttc",
-    "/usr/share/fonts/truetype/wqy/*.ttf",
-    # 通用 Linux
-    "/usr/share/fonts/**/*CJK*.ttc",
-    "/usr/share/fonts/**/*CJK*.ttf",
-    # Windows
+    "/System/Library/Fonts/STHeiti Light.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
     "C:/Windows/Fonts/msyh.ttc",
-    "C:/Windows/Fonts/msyh.ttf",
-    "C:/Windows/Fonts/simsun.ttc",
 ]
 
-# 全局字体路径缓存
-_FONT_PATH: Optional[str] = None
-_FONT_SEARCHED: bool = False
 
+def _register_font():
+    """注册中文字体到 reportlab，优先使用项目自带字体。"""
+    global _FONT_REGISTERED
+    if _FONT_REGISTERED:
+        return
+    _FONT_REGISTERED = True
 
-def _find_chinese_font() -> Optional[str]:
-    """扫描系统，返回第一个可用的中文字体路径。"""
-    global _FONT_PATH, _FONT_SEARCHED
-    if _FONT_SEARCHED:
-        return _FONT_PATH
-    _FONT_SEARCHED = True
+    for font_path in _FONT_FILES:
+        if os.path.isfile(font_path):
+            try:
+                pdfmetrics.registerFont(TTFont("CJK", font_path))
+                pdfmetrics.registerFont(TTFont("CJK-Bold", font_path))  # reportlab 会合成粗体
+                return
+            except Exception:
+                continue
 
-    # 1. glob 匹配候选路径
-    for pattern in _FONT_GLOBS:
-        matches = glob.glob(pattern, recursive=True)
-        for path in matches:
-            if os.path.isfile(path):
-                _FONT_PATH = path
-                return _FONT_PATH
-
-    # 2. fc-list 命令查询（Linux 最可靠的方式）
-    try:
-        result = subprocess.run(
-            ["fc-list", ":lang=zh", "file"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            first_line = result.stdout.strip().split("\n")[0]
-            font_path = first_line.split(":")[0].strip()
-            if os.path.isfile(font_path):
-                _FONT_PATH = font_path
-                return _FONT_PATH
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        pass
-
-    # 3. fc-list 查询任意字体（部分环境 fc-list 不支持 :lang 过滤）
-    try:
-        result = subprocess.run(
-            ["fc-list", "file"],
-            capture_output=True, text=True, timeout=5,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            for line in result.stdout.strip().split("\n"):
-                font_path = line.split(":")[0].strip()
-                name_lower = line.lower()
-                if any(kw in name_lower for kw in ("cjk", "noto", "wqy", "song", "hei", "ming", "kai", "fang")):
-                    if os.path.isfile(font_path):
-                        _FONT_PATH = font_path
-                        return _FONT_PATH
-    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        pass
-
-    # 4. 运行时下载兜底：从 GitHub 获取 Noto Sans SC
-    try:
-        _FONT_PATH = _download_cjk_font()
-        if _FONT_PATH:
-            return _FONT_PATH
-    except Exception:
-        pass
-
-    return None
-
-
-def _download_cjk_font() -> Optional[str]:
-    """下载 Noto Sans SC 字体到 /tmp/ 作为最后兜底。"""
-    import urllib.request
-
-    font_url = (
-        "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/"
-        "NotoSansCJKsc-Regular.otf"
-    )
-    font_path = "/tmp/NotoSansCJKsc-Regular.otf"
-
-    if os.path.exists(font_path):
-        return font_path
-
-    try:
-        urllib.request.urlretrieve(font_url, font_path)
-        if os.path.getsize(font_path) > 10000:  # 至少 10KB
-            return font_path
-    except Exception:
-        pass
-
-    return None
+    # 未找到字体时使用 Helvetica（中文将不正常显示）
+    pass
 
 
 # ============================================================
 # PDF 生成核心
 # ============================================================
 
-class ShippingPDF(FPDF):
-    """航运业务 PDF 文档基类，封装中文字体加载和公文格式。"""
+def _build_document(
+    title: str,
+    doc_no: str,
+    elements: list,
+    recipient: str = "",
+) -> bytes:
+    """构建 PDF 文档，返回 bytes。"""
+    _register_font()
 
-    def __init__(self):
-        super().__init__()
-        self.set_auto_page_break(auto=True, margin=20)
-        self._font_loaded = False
-        self._init_font()
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        topMargin=25 * mm,
+        bottomMargin=20 * mm,
+        leftMargin=22 * mm,
+        rightMargin=22 * mm,
+    )
 
-    def _init_font(self):
-        font_path = _find_chinese_font()
-        if font_path:
-            self.add_font("cjk", "", font_path, uni=True)
-            self.add_font("cjk", "B", font_path, uni=True)
-            self._font_loaded = True
-        else:
-            # 无可用的中文字体，使用内置 Helvetica
-            self._font_loaded = False
+    # 样式
+    font_name = "CJK" if _FONT_REGISTERED else "Helvetica"
 
-    def _font(self, bold: bool = False):
-        """返回当前可用字体名。"""
-        if self._font_loaded:
-            return "cjk" if not bold else "cjk"
-        return "Helvetica"
+    styles = {
+        "title": ParagraphStyle(
+            "Title_CN", fontName=font_name, fontSize=18,
+            alignment=TA_CENTER, spaceAfter=6, leading=28,
+        ),
+        "doc_no": ParagraphStyle(
+            "DocNo", fontName=font_name, fontSize=10,
+            alignment=TA_CENTER, textColor=HexColor("#888888"),
+            spaceAfter=4,
+        ),
+        "recipient": ParagraphStyle(
+            "Recipient", fontName=font_name, fontSize=11,
+            alignment=TA_LEFT, spaceAfter=8, leading=18,
+        ),
+        "body": ParagraphStyle(
+            "Body_CN", fontName=font_name, fontSize=11,
+            alignment=TA_LEFT, spaceAfter=6, leading=22,
+            firstLineIndent=22,  # 首行缩进
+        ),
+        "body_no_indent": ParagraphStyle(
+            "BodyNoIndent", fontName=font_name, fontSize=11,
+            alignment=TA_LEFT, spaceAfter=6, leading=22,
+        ),
+        "signature": ParagraphStyle(
+            "Signature", fontName=font_name, fontSize=11,
+            alignment=TA_RIGHT, spaceAfter=4, leading=18,
+        ),
+        "note": ParagraphStyle(
+            "Note", fontName=font_name, fontSize=9,
+            alignment=TA_LEFT, textColor=HexColor("#888888"),
+            leading=16,
+        ),
+    }
 
-    def header_block(self, title: str, doc_no: str = ""):
-        """公文红头标题区域。"""
-        self.add_page()
-        # 红色分隔线
-        self.set_draw_color(180, 0, 0)
-        self.set_line_width(0.8)
-        self.line(15, 25, self.w - 15, 25)
-        # 标题
-        self.set_font(self._font(bold=True), "", 18)
-        self.set_y(32)
-        self.cell(0, 12, title, align="C")
-        self.ln(14)
-        # 文号
-        if doc_no:
-            self.set_font(self._font(), "", 10)
-            self.set_text_color(100, 100, 100)
-            self.cell(0, 8, doc_no, align="C")
-            self.ln(10)
-            self.set_text_color(0, 0, 0)
-        # 红色分隔线
-        self.set_draw_color(180, 0, 0)
-        self.set_line_width(0.4)
-        self.line(15, self.get_y(), self.w - 15, self.get_y())
-        self.ln(10)
+    # 红色分隔线
+    red_line = HRFlowable(
+        width="100%", thickness=1, color=HexColor("#B40000"),
+        spaceBefore=4, spaceAfter=4,
+    )
+    thin_red_line = HRFlowable(
+        width="100%", thickness=0.4, color=HexColor("#B40000"),
+        spaceBefore=2, spaceAfter=8,
+    )
 
-    def body_text(self, text: str, size: int = 11, indent: bool = True):
-        """正文段落，首行缩进两字符。"""
-        self.set_font(self._font(), "", size)
-        if indent:
-            self.cell(2 * size, 8, "")  # 缩进
-        self.multi_cell(0, 7, text, align="L")
-        self.ln(2)
+    # 组装文档
+    story = []
 
-    def body_table(self, rows: list, col_widths: list = None):
-        """简单表格。"""
-        if not rows:
-            return
-        if col_widths is None:
-            col_widths = [self.w / len(rows[0]) - 2] * len(rows[0])
-        self.set_font(self._font(), "", 10)
-        for i, row in enumerate(rows):
-            if i == 0:
-                self.set_font(self._font(bold=True), "", 10)
-            else:
-                self.set_font(self._font(), "", 10)
-            for j, cell in enumerate(row):
-                w = col_widths[j] if j < len(col_widths) else 30
-                self.cell(w, 8, str(cell), border=1, align="C")
-            self.ln()
-        self.ln(4)
+    # 红头区域
+    story.append(red_line)
+    story.append(Paragraph(title, styles["title"]))
+    if doc_no:
+        story.append(Paragraph(doc_no, styles["doc_no"]))
+    story.append(thin_red_line)
 
-    def signature_block(self, company: str = "中远海运散货运输有限公司"):
-        """落款区域。"""
-        self.set_font(self._font(), "", 11)
-        self.ln(10)
-        self.cell(0, 8, company, align="R")
-        self.ln(8)
-        now = datetime.now(_CST)
-        date_str = now.strftime("%Y年%m月%d日")
-        self.cell(0, 8, date_str, align="R")
+    # 主送
+    if recipient:
+        story.append(Paragraph(f"{recipient}：", styles["recipient"]))
+        story.append(Spacer(1, 4 * mm))
 
-    def footer(self):
-        self.set_y(-15)
-        self.set_font(self._font(), "", 8)
-        self.set_text_color(150, 150, 150)
-        self.cell(0, 10, f"第 {self.page_no()} 页", align="C")
+    # 正文
+    for elem in elements:
+        story.append(elem)
+        if isinstance(elem, Paragraph) and elem.style == styles["body"]:
+            pass  # body style already has spaceAfter
+
+    story.append(Spacer(1, 10 * mm))
+
+    # 落款
+    now = datetime.now(_CST)
+    story.append(Paragraph("中远海运散货运输有限公司", styles["signature"]))
+    story.append(Paragraph(now.strftime("%Y年%m月%d日"), styles["signature"]))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
+def _para(text: str, styles: dict, key: str = "body") -> Paragraph:
+    """快捷创建段落，自动处理换行。"""
+    return Paragraph(text.replace("\n", "<br/>"), styles[key])
+
+
+def _build_table(rows: list, col_widths: list, styles: dict) -> Table:
+    """创建格式化表格。"""
+    font_name = "CJK" if _FONT_REGISTERED else "Helvetica"
+
+    # 处理中文换行
+    formatted_rows = []
+    for row in rows:
+        formatted_rows.append([Paragraph(str(c).replace("\n", "<br/>"),
+                                          ParagraphStyle(
+                                              "Cell", fontName=font_name, fontSize=10,
+                                              leading=16,
+                                          )) for c in row])
+
+    t = Table(formatted_rows, colWidths=col_widths)
+    t.setStyle(TableStyle([
+        ("FONTNAME", (0, 0), (-1, -1), font_name),
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("GRID", (0, 0), (-1, -1), 0.5, HexColor("#CCCCCC")),
+        ("BACKGROUND", (0, 0), (-1, 0), HexColor("#F0F0F0")),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    return t
 
 
 # ============================================================
@@ -255,35 +211,27 @@ def generate_schedule_confirmation(
     consignor: str = "待填写",
     consignee: str = "待填写",
 ) -> bytes:
-    """
-    生成船期确认函。
+    """生成船期确认函。"""
+    _register_font()
+    font_name = "CJK" if _FONT_REGISTERED else "Helvetica"
 
-    参数:
-        route: 航线，如"西澳-青岛"
-        vessel: 船名
-        departure: 预计离港时间
-        arrival: 预计到港时间
-        cargo: 货种及货量
-        consignor: 托运人
-        consignee: 收货人
-    """
-    pdf = ShippingPDF()
+    styles = {
+        "title": ParagraphStyle("T", fontName=font_name, fontSize=18, alignment=TA_CENTER, leading=28),
+        "doc_no": ParagraphStyle("DN", fontName=font_name, fontSize=10, alignment=TA_CENTER, textColor=HexColor("#888888")),
+        "recipient": ParagraphStyle("R", fontName=font_name, fontSize=11, alignment=TA_LEFT, leading=18),
+        "body": ParagraphStyle("B", fontName=font_name, fontSize=11, alignment=TA_LEFT, leading=22, firstLineIndent=22),
+        "signature": ParagraphStyle("S", fontName=font_name, fontSize=11, alignment=TA_RIGHT, leading=18),
+    }
 
     now = datetime.now(_CST)
     doc_no = f"COSCO BULK 航确字〔{now.year}〕第{now.strftime('%m%d%H%M')}号"
 
-    pdf.header_block("船 期 确 认 函", doc_no)
-
-    # 收件方
-    pdf.set_font(pdf._font(bold=True), "", 11)
-    pdf.cell(0, 8, f"致：{consignee}", align="L")
-    pdf.ln(12)
-
-    # 正文
-    pdf.body_text(
-        f"根据贵我双方签署的运输合同，我司确认以下船期安排，现函告如下："
-    )
-    pdf.ln(4)
+    elements = [
+        _para(f"致：{consignee}", styles, "recipient"),
+        Spacer(1, 4 * mm),
+        _para("根据贵我双方签署的运输合同，我司确认以下船期安排，现函告如下：", styles, "body"),
+        Spacer(1, 4 * mm),
+    ]
 
     # 船期信息表
     table_data = [
@@ -296,24 +244,18 @@ def generate_schedule_confirmation(
         ["托运人", consignor],
         ["收货人", consignee],
     ]
-    col_w = [(pdf.w - 30) * 0.3, (pdf.w - 30) * 0.7]
-    pdf.body_table(table_data, col_w)
+    col_w = [80, 300]
+    elements.append(_build_table(table_data, col_w, styles))
+    elements.append(Spacer(1, 6 * mm))
 
-    # 备注
-    pdf.body_text(
+    elements.append(_para(
         "备注：以上船期为当前预计安排。如遇天气、港口拥堵等不可抗力因素，"
-        "实际船期可能有所调整。我司将实时跟踪船舶动态，如有变更将第一时间通知贵方。"
-    )
+        "实际船期可能有所调整。我司将实时跟踪船舶动态，如有变更将第一时间通知贵方。",
+        styles, "body",
+    ))
+    elements.append(_para("如有疑问，请联系我司客服中心。", styles, "body"))
 
-    # 联系方式
-    pdf.ln(4)
-    pdf.set_font(pdf._font(), "", 10)
-    pdf.cell(0, 8, "如有疑问，请联系我司客服中心：400-XXX-XXXX", align="L")
-    pdf.ln(8)
-
-    pdf.signature_block()
-
-    return bytes(pdf.output())
+    return _build_document("船 期 确 认 函", doc_no, elements, consignee)
 
 
 def generate_shipping_report(
@@ -321,41 +263,34 @@ def generate_shipping_report(
     content: str,
     author: str = "远航助手",
 ) -> bytes:
-    """
-    生成通用航运报告。
+    """生成通用航运报告。"""
+    _register_font()
+    font_name = "CJK" if _FONT_REGISTERED else "Helvetica"
 
-    参数:
-        title: 报告标题
-        content: 报告正文（支持换行符分段）
-        author: 编制人/部门
-    """
-    pdf = ShippingPDF()
+    styles = {
+        "title": ParagraphStyle("T", fontName=font_name, fontSize=18, alignment=TA_CENTER, leading=28),
+        "doc_no": ParagraphStyle("DN", fontName=font_name, fontSize=10, alignment=TA_CENTER, textColor=HexColor("#888888")),
+        "body": ParagraphStyle("B", fontName=font_name, fontSize=11, alignment=TA_LEFT, leading=22, firstLineIndent=22),
+        "meta": ParagraphStyle("M", fontName=font_name, fontSize=10, alignment=TA_RIGHT, textColor=HexColor("#888888")),
+        "signature": ParagraphStyle("S", fontName=font_name, fontSize=11, alignment=TA_RIGHT, leading=18),
+    }
 
     now = datetime.now(_CST)
     doc_no = f"COSCO BULK 报字〔{now.year}〕第{now.strftime('%m%d%H%M')}号"
 
-    pdf.header_block(title, doc_no)
+    elements = [
+        _para(f"编制：{author}    日期：{now.strftime('%Y-%m-%d')}", styles, "meta"),
+        Spacer(1, 6 * mm),
+    ]
 
-    # 编制信息
-    pdf.set_font(pdf._font(), "", 10)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 8, f"编制：{author}    日期：{now.strftime('%Y-%m-%d')}", align="R")
-    pdf.set_text_color(0, 0, 0)
-    pdf.ln(12)
-
-    # 正文（按段落处理）
-    paragraphs = content.strip().split("\n")
-    for para in paragraphs:
+    for para in content.strip().split("\n"):
         para = para.strip()
         if para:
-            pdf.body_text(para)
+            elements.append(_para(para, styles, "body"))
         else:
-            pdf.ln(4)
+            elements.append(Spacer(1, 3 * mm))
 
-    pdf.ln(6)
-    pdf.signature_block()
-
-    return bytes(pdf.output())
+    return _build_document(title, doc_no, elements)
 
 
 def generate_official_document(
@@ -364,41 +299,30 @@ def generate_official_document(
     recipient: str = "",
     doc_type: str = "通知",
 ) -> bytes:
-    """
-    生成央企通用公文。
+    """生成央企通用公文。"""
+    _register_font()
+    font_name = "CJK" if _FONT_REGISTERED else "Helvetica"
 
-    参数:
-        title: 公文标题
-        content: 公文正文
-        recipient: 主送单位
-        doc_type: 公文类型（通知/函/报告/请示）
-    """
-    pdf = ShippingPDF()
+    styles = {
+        "title": ParagraphStyle("T", fontName=font_name, fontSize=18, alignment=TA_CENTER, leading=28),
+        "doc_no": ParagraphStyle("DN", fontName=font_name, fontSize=10, alignment=TA_CENTER, textColor=HexColor("#888888")),
+        "recipient": ParagraphStyle("R", fontName=font_name, fontSize=11, alignment=TA_LEFT, leading=18),
+        "body": ParagraphStyle("B", fontName=font_name, fontSize=11, alignment=TA_LEFT, leading=22, firstLineIndent=22),
+        "signature": ParagraphStyle("S", fontName=font_name, fontSize=11, alignment=TA_RIGHT, leading=18),
+    }
 
     now = datetime.now(_CST)
     doc_no = f"COSCO BULK {doc_type}字〔{now.year}〕第{now.strftime('%m%d%H%M')}号"
 
-    pdf.header_block(title, doc_no)
-
-    # 主送单位
-    if recipient:
-        pdf.set_font(pdf._font(bold=True), "", 11)
-        pdf.cell(0, 8, f"{recipient}：", align="L")
-        pdf.ln(12)
-
-    # 公文正文
-    paragraphs = content.strip().split("\n")
-    for para in paragraphs:
+    elements = []
+    for para in content.strip().split("\n"):
         para = para.strip()
         if para:
-            pdf.body_text(para)
+            elements.append(_para(para, styles, "body"))
         else:
-            pdf.ln(4)
+            elements.append(Spacer(1, 3 * mm))
 
-    pdf.ln(6)
-    pdf.signature_block()
-
-    return bytes(pdf.output())
+    return _build_document(title, doc_no, elements, recipient)
 
 
 # ============================================================
