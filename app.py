@@ -129,7 +129,7 @@ st.divider()
 # ============================================================
 # 第2区：查询栏（st.form —— Enter 直接提交）
 # ============================================================
-# 表单：textarea + 提交按钮
+# 表单：textarea → 文件上传 → 发送按钮
 with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=False):
     user_query = st.text_area(
         "查询内容",
@@ -138,33 +138,27 @@ with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=Fa
         height=64,
         key=f"query_input_{st.session_state.widget_key}",
     )
+    uploaded_file = st.file_uploader(
+        "📎 上传文件（PDF / Excel / CSV / TXT）",
+        type=["pdf", "xlsx", "xls", "csv", "txt"],
+        label_visibility="visible",
+        key=f"file_uploader_{st.session_state.widget_key}",
+    )
     submit = st.form_submit_button("↑ 发送", use_container_width=True, type="primary")
 
-# 表单外：文件上传（即时解析）
-uploaded_file = st.file_uploader(
-    "📎 上传文件（PDF / Excel / CSV / TXT）",
-    type=["pdf", "xlsx", "xls", "csv", "txt"],
-    label_visibility="visible",
-    key=f"file_uploader_{st.session_state.widget_key}",
-)
-
-if uploaded_file is not None:
-    file_key = f"{uploaded_file.name}_{uploaded_file.size}"
-    if st.session_state.last_file_key != file_key:
-        with st.spinner("正在解析文件..."):
-            file_text = parse_file_content(uploaded_file.getvalue(), uploaded_file.name)
-        set_uploaded_file(file_text, uploaded_file.name)
-        st.session_state.last_file_key = file_key
-        st.session_state.file_loaded = True
-        st.rerun()
-
 # ============================================================
-# 第3区：查询处理逻辑
+# 第3区：查询处理
 # ============================================================
 if submit and user_query.strip():
     status_placeholder.info("🤔 正在分析中，请稍候...")
 
     try:
+        # 解析上传文件（表单内，提交时才拿到文件）
+        if uploaded_file is not None:
+            file_text = parse_file_content(uploaded_file.getvalue(), uploaded_file.name)
+            set_uploaded_file(file_text, uploaded_file.name)
+            st.session_state.file_loaded = True
+
         history_for_agent = []
         for h in st.session_state.history:
             history_for_agent.append({"role": "user", "content": h["query"]})
