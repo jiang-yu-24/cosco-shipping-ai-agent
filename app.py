@@ -27,6 +27,29 @@ st.markdown("""
     footer {visibility: hidden;}
     .query-input textarea { font-size: 16px !important; }
 </style>
+<script>
+// Shift+Enter 换行，单 Enter 直接提交查询
+(function() {
+    function setupEnterSubmit() {
+        const textareas = document.querySelectorAll('textarea');
+        textareas.forEach(function(ta) {
+            if (ta._enterSubmitReady) return;
+            ta._enterSubmitReady = true;
+            ta.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    // 找到同一行或最近的 primary 按钮
+                    const btn = document.querySelector('button[kind="primary"]');
+                    if (btn) btn.click();
+                }
+            });
+        });
+    }
+    // 初始绑定 + MutationObserver 监听动态渲染
+    setupEnterSubmit();
+    new MutationObserver(setupEnterSubmit).observe(document.body, {childList: true, subtree: true});
+})();
+</script>
 """, unsafe_allow_html=True)
 
 # ============================================================
