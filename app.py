@@ -90,32 +90,73 @@ st.title("🚢 远航助手")
 st.caption("中远海运散货运输智能助理 · 船期查询 · 文件分析 · 实时信息")
 
 # ============================================================
-# 上方查询栏
+# 结果面板（上方）
 # ============================================================
-# 第一行：查询输入 + 查询按钮
+if st.session_state.history:
+    latest = st.session_state.history[0]
+
+    st.subheader("📋 查询结果")
+    with st.container(border=True):
+        st.caption(f"🔍 查询：{latest['query'][:100]}{'...' if len(latest['query']) > 100 else ''}")
+        st.markdown(latest["response"])
+
+    # PDF 下载按钮
+    try:
+        from pdf_utils import get_pdf
+        pdf_data, pdf_name = get_pdf()
+    except ImportError:
+        pdf_data, pdf_name = None, ""
+    if pdf_data is not None:
+        st.download_button(
+            label=f"📥 下载 {pdf_name}",
+            data=pdf_data, file_name=pdf_name,
+            mime="application/pdf", type="primary",
+        )
+
+    # 历史记录
+    if len(st.session_state.history) > 1:
+        with st.expander("📜 历史记录", expanded=False):
+            for h in st.session_state.history[1:]:
+                st.caption(f"🔍 {h['query'][:80]}")
+                st.markdown(h["response"])
+                st.divider()
+
+else:
+    st.info(
+        "👋 欢迎使用远航助手！请在下方输入查询内容。\n\n"
+        "**试试这些：**\n"
+        "• 查一下西澳-青岛的船期\n"
+        "• 上传文件后：这份提单的托运人是谁？\n"
+        "• 帮我生成一份船期确认函"
+    )
+
+st.divider()
+
+# ============================================================
+# 下方查询栏
+# ============================================================
 col_input, col_btn = st.columns([8, 1])
 with col_input:
     user_query = st.text_area(
         "查询内容",
-        placeholder="请输入您的查询，例如：查一下西澳-青岛的船期，或 这份提单的托运人是谁？",
+        placeholder="请输入您的查询...",
         label_visibility="collapsed",
         height=68,
         key=f"query_input_{st.session_state.widget_key}",
     )
 with col_btn:
-    st.write("")  # 对齐
+    st.write("")
     submit = st.button("查询", use_container_width=True, type="primary")
 
-# 第二行：文件上传（占一整行）
+# 文件上传（输入框下方一行）
 uploaded_file = st.file_uploader(
     "上传文件进行分析（支持 PDF / Excel / CSV / TXT，上传后查询将基于文件内容回答）",
     type=["pdf", "xlsx", "xls", "csv", "txt"],
-    help="上传后可在查询中对文件内容提问，例如「这份提单的托运人是谁？」",
+    help="上传后可在查询中对文件内容提问",
     label_visibility="visible",
     key=f"file_uploader_{st.session_state.widget_key}",
 )
 
-# 处理文件上传
 if uploaded_file is not None:
     file_key = f"{uploaded_file.name}_{uploaded_file.size}"
     if st.session_state.last_file_key != file_key:
@@ -126,10 +167,8 @@ if uploaded_file is not None:
         st.session_state.file_loaded = True
         st.rerun()
 
-st.divider()
-
 # ============================================================
-# 执行查询
+# 处理查询提交
 # ============================================================
 if submit and user_query.strip():
     with st.spinner("🤔 正在分析中..."):
@@ -174,50 +213,3 @@ if submit and user_query.strip():
 
 elif submit and not user_query.strip():
     st.warning("请输入查询内容")
-
-# ============================================================
-# 最新结果面板
-# ============================================================
-if st.session_state.history:
-    latest = st.session_state.history[0]
-
-    st.subheader("📋 查询结果")
-    with st.container(border=True):
-        st.caption(f"🔍 查询：{latest['query'][:100]}{'...' if len(latest['query']) > 100 else ''}")
-        st.markdown(latest["response"])
-
-    # ============================================================
-    # 历史记录
-    # ============================================================
-    # PDF 下载按钮（Agent 生成文档后自动显示）
-    try:
-        from pdf_utils import get_pdf
-        pdf_data, pdf_name = get_pdf()
-    except ImportError:
-        pdf_data, pdf_name = None, ""
-    if pdf_data is not None:
-        st.download_button(
-            label=f"📥 下载 {pdf_name}",
-            data=pdf_data,
-            file_name=pdf_name,
-            mime="application/pdf",
-            type="primary",
-        )
-
-    if len(st.session_state.history) > 1:
-        st.subheader("📜 历史记录")
-        for i, h in enumerate(st.session_state.history[1:], 1):
-            with st.expander(f"🔍 {h['query'][:60]}{'...' if len(h['query']) > 60 else ''}", expanded=False):
-                st.markdown(h["response"])
-
-# ============================================================
-# 欢迎状态（无历史时的初始界面）
-# ============================================================
-else:
-    st.info(
-        "👋 欢迎使用远航助手！请在上方输入您的查询内容，点击「查询」按钮开始。\n\n"
-        "**试试这些：**\n"
-        "• 查一下西澳-青岛的船期\n"
-        "• 上传一份提单 PDF，问：这份提单的托运人是谁？\n"
-        "• 分析这份船期表中有没有去天津的船"
-    )
