@@ -73,7 +73,7 @@ if "history" not in st.session_state:
     st.session_state.history = []          # [{query, response}]
     st.session_state.file_loaded = False
     st.session_state.last_file_key = None
-    st.session_state.pending_query = None  # 待处理的查询
+    st.session_state.widget_key = 0        # 用于重置输入框和上传组件
 
 # ============================================================
 # 左侧边栏
@@ -98,8 +98,9 @@ with st.sidebar:
     st.caption(f"共 {len(TOOL_NAMES)} 项服务")
     for tool in TOOL_DESCRIPTIONS:
         func_name = tool["function"]["name"]
-        display_name = TOOL_DISPLAY_NAMES.get(func_name, func_name)
-        with st.expander(display_name, expanded=False):
+        if func_name not in TOOL_DISPLAY_NAMES:
+            continue  # 不在展示列表中的工具（如内部工具）跳过
+        with st.expander(TOOL_DISPLAY_NAMES[func_name], expanded=False):
             st.caption(tool["function"]["description"])
 
     st.divider()
@@ -128,11 +129,11 @@ with col_input:
         placeholder="请输入您的查询，例如：查一下西澳-青岛的船期，或 这份提单的托运人是谁？",
         label_visibility="collapsed",
         height=68,
-        key="query_input",
+        key=f"query_input_{st.session_state.widget_key}",
     )
 with col_btn:
     st.write("")  # 对齐
-    submit = st.button("🚀 查询", use_container_width=True, type="primary")
+    submit = st.button("查询", use_container_width=True, type="primary")
 
 # 第二行：文件上传（占一整行）
 uploaded_file = st.file_uploader(
@@ -140,7 +141,7 @@ uploaded_file = st.file_uploader(
     type=["pdf", "xlsx", "xls", "csv", "txt"],
     help="上传后可在查询中对文件内容提问，例如「这份提单的托运人是谁？」",
     label_visibility="visible",
-    key="file_uploader_main",
+    key=f"file_uploader_{st.session_state.widget_key}",
 )
 
 # 处理文件上传
@@ -190,6 +191,13 @@ if submit and user_query.strip():
                 "response": response,
             })
 
+            # 清空输入框和上传文件
+            set_uploaded_file("", "")
+            st.session_state.file_loaded = False
+            st.session_state.last_file_key = None
+            st.session_state.widget_key += 1
+            st.rerun()
+
         except Exception:
             st.error("❌ 系统繁忙，请稍后重试。")
 
@@ -228,7 +236,7 @@ else:
     st.info(
         "👋 欢迎使用远航助手！请在上方输入您的查询内容，点击「查询」按钮开始。\n\n"
         "**试试这些：**\n"
-        "• 现在几点了？\n"
         "• 查一下西澳-青岛的船期\n"
-        "• 上传一份提单 PDF，问：这份提单的托运人是谁？"
+        "• 上传一份提单 PDF，问：这份提单的托运人是谁？\n"
+        "• 分析这份船期表中有没有去天津的船"
     )

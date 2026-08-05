@@ -255,7 +255,7 @@ TOOL_DESCRIPTIONS: List[Dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "get_current_time",
-            "description": "获取当前系统日期和时间。当用户询问'现在几点'、'今天几号'、'当前时间'时调用此工具。",
+            "description": "获取当前北京时间（东八区）。当用户询问'现在几点'、'今天几号'、'当前时间'时调用此工具。",
             "parameters": {
                 "type": "object",
                 "properties": {},
@@ -322,7 +322,6 @@ TOOL_NAMES: List[str] = [t["function"]["name"] for t in TOOL_DESCRIPTIONS]
 # TOOL_DISPLAY_NAMES: 工具函数名 -> 自然语言展示名
 # app.py 侧边栏使用此映射展示服务能力，对用户隐藏内部函数名
 TOOL_DISPLAY_NAMES: Dict[str, str] = {
-    "get_current_time": "📅 实时时间查询",
     "query_shipping_schedule": "🚢 散货船期查询",
     "search_file_content": "🔍 文件内容检索",
 }
