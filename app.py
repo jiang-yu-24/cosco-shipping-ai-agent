@@ -2,6 +2,7 @@
 Streamlit 前端界面 — 中远海运散货 AI 助理「远航助手」
 """
 
+import json
 import os
 import streamlit as st
 
@@ -13,6 +14,51 @@ from tools import (
     parse_file_content, set_uploaded_file, get_uploaded_file_info,
 )
 from agent_core import run_agent
+
+# ============================================================
+# 持久化存储（JSON 文件模拟 Redis）
+# ============================================================
+_CACHE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".history_cache.json")
+
+
+def _load_history():
+    """从磁盘加载历史记录。"""
+    try:
+        if os.path.exists(_CACHE_FILE):
+            with open(_CACHE_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # 文件数据不存 bytes，file_data 跳过
+            for h in data:
+                h["file_data"] = None
+            return data
+    except Exception:
+        pass
+    return []
+
+
+def _save_history(history):
+    """保存历史记录到磁盘（不存文件 bytes，仅存元数据）。"""
+    try:
+        slim = []
+        for h in history:
+            slim.append({
+                "query": h["query"],
+                "response": h["response"],
+                "file_name": h.get("file_name"),
+            })
+        with open(_CACHE_FILE, "w", encoding="utf-8") as f:
+            json.dump(slim, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def _clear_cache():
+    """删除缓存文件。"""
+    try:
+        if os.path.exists(_CACHE_FILE):
+            os.remove(_CACHE_FILE)
+    except Exception:
+        pass
 
 st.set_page_config(
     page_title="远航助手 - 中远海运散货运输智能助理",
@@ -46,7 +92,7 @@ st.markdown("""
 # 会话状态
 # ============================================================
 if "history" not in st.session_state:
-    st.session_state.history = []
+    st.session_state.history = _load_history()
     st.session_state.file_loaded = False
     st.session_state.last_file_key = None
     st.session_state.widget_key = 0
@@ -84,6 +130,7 @@ with st.sidebar:
 
     if st.button("🗑️ 清空历史", use_container_width=True, type="secondary"):
         st.session_state.history = []
+        _clear_cache()
         st.rerun()
 
     st.divider()
@@ -209,6 +256,7 @@ if submit and user_query.strip():
             "file_name": file_name,
             "file_data": file_data,
         })
+        _save_history(st.session_state.history)
 
         set_uploaded_file("", "")
         st.session_state.file_loaded = False

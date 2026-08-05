@@ -21,5 +21,8 @@ build/
 # Streamlit
 .streamlit/secrets.toml
 
+# 历史缓存
+.history_cache.json
+
 # OS
 Thumbs.db
