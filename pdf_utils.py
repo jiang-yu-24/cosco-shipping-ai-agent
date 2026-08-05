@@ -4,10 +4,18 @@ PDF 文档生成模块 — 央企规范化公文模板
 基于 fpdf2 实现中文 PDF 文档生成。
 支持：船期确认函、货运报告、通用公文。
 仅供 Agent 后端调用，不在前端侧边栏展示。
+
+中文字体加载策略：
+  1. 遍历候选路径列表
+  2. glob 通配搜索常见字体目录
+  3. 调用 fc-list 命令查询系统可用中文字体
+  4. 以上均失败则使用 Helvetica（中文将显示为空白）
 """
 
+import glob
 import io
 import os
+import subprocess
 import base64
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
@@ -17,36 +25,67 @@ from fpdf import FPDF
 # 北京时间
 _CST = timezone(timedelta(hours=8), name="Asia/Shanghai")
 
-# 中文字体路径（按优先级尝试）
-_FONT_CANDIDATES = [
-    # macOS 系统字体
+# 中文字体候选路径（支持 glob 通配符）
+_FONT_GLOBS = [
+    # macOS
     "/System/Library/Fonts/PingFang.ttc",
-    "/System/Library/Fonts/STHeiti Light.ttc",
-    "/System/Library/Fonts/Hiragino Sans GB.ttc",
+    "/System/Library/Fonts/STHeiti*.ttc",
+    "/System/Library/Fonts/Hiragino*.ttc",
     "/Library/Fonts/Arial Unicode.ttf",
-    # Linux (Streamlit Cloud) — Noto CJK
-    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
-    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+    # Debian/Ubuntu (Streamlit Cloud) — fonts-noto-cjk 安装路径
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-*.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSerifCJK-*.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSansCJK-*.ttc",
+    "/usr/share/fonts/truetype/noto/NotoSerifCJK-*.ttc",
+    "/usr/share/fonts/noto-cjk/*.ttc",
+    "/usr/share/fonts/truetype/droid/DroidSans*.ttf",
+    "/usr/share/fonts/truetype/wqy/*.ttc",
+    "/usr/share/fonts/truetype/wqy/*.ttf",
+    # 通用 Linux
+    "/usr/share/fonts/**/*CJK*.ttc",
+    "/usr/share/fonts/**/*CJK*.ttf",
     # Windows
     "C:/Windows/Fonts/msyh.ttc",
+    "C:/Windows/Fonts/msyh.ttf",
     "C:/Windows/Fonts/simsun.ttc",
 ]
 
 # 全局字体路径缓存
 _FONT_PATH: Optional[str] = None
+_FONT_SEARCHED: bool = False
 
 
 def _find_chinese_font() -> Optional[str]:
-    """扫描系统字体目录，返回第一个可用的中文字体路径。"""
-    global _FONT_PATH
-    if _FONT_PATH is not None:
+    """扫描系统，返回第一个可用的中文字体路径。"""
+    global _FONT_PATH, _FONT_SEARCHED
+    if _FONT_SEARCHED:
         return _FONT_PATH
-    for path in _FONT_CANDIDATES:
-        if os.path.exists(path):
-            _FONT_PATH = path
-            return path
+    _FONT_SEARCHED = True
+
+    # 1. glob 匹配候选路径
+    for pattern in _FONT_GLOBS:
+        matches = glob.glob(pattern, recursive=True)
+        for path in matches:
+            if os.path.isfile(path):
+                _FONT_PATH = path
+                return _FONT_PATH
+
+    # 2. fc-list 命令查询（Linux 最可靠的方式）
+    try:
+        result = subprocess.run(
+            ["fc-list", ":lang=zh", "file"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            # 取第一个结果的文件路径（格式：/path/to/font.ttf: Font Name）
+            first_line = result.stdout.strip().split("\n")[0]
+            font_path = first_line.split(":")[0].strip()
+            if os.path.isfile(font_path):
+                _FONT_PATH = font_path
+                return _FONT_PATH
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+
     return None
 
 
