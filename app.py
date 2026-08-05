@@ -33,34 +33,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     footer {visibility: hidden;}
-    /* 查询输入框增大字体 */
-    .query-input textarea {
-        font-size: 16px !important;
-    }
-    /* 结果卡片 */
-    .result-card {
-        background: #f8fafb;
-        border-left: 4px solid #1a6fb5;
-        padding: 16px 20px;
-        border-radius: 4px;
-        margin: 8px 0 24px 0;
-    }
-    /* 历史条目 */
-    .history-item {
-        border-bottom: 1px solid #eee;
-        padding: 12px 0;
-    }
-    .history-query {
-        color: #1a6fb5;
-        font-weight: 600;
-        font-size: 14px;
-    }
-    .history-result {
-        color: #333;
-        font-size: 13px;
-        margin-top: 4px;
-        white-space: pre-line;
-    }
+    .query-input textarea { font-size: 16px !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -209,14 +182,9 @@ if st.session_state.history:
     latest = st.session_state.history[0]
 
     st.subheader("📋 查询结果")
-    st.markdown(f"""
-    <div class="result-card">
-        <div style="color:#888;font-size:12px;margin-bottom:8px;">
-            🔍 查询：{latest['query'][:100]}{'...' if len(latest['query']) > 100 else ''}
-        </div>
-        <div style="line-height:1.8;">{latest['response']}</div>
-    </div>
-    """, unsafe_allow_html=True)
+    with st.container(border=True):
+        st.caption(f"🔍 查询：{latest['query'][:100]}{'...' if len(latest['query']) > 100 else ''}")
+        st.markdown(latest["response"])
 
     # ============================================================
     # 历史记录
