@@ -376,10 +376,9 @@ TOOL_DESCRIPTIONS: List[Dict[str, Any]] = [
         "function": {
             "name": "search_file_content",
             "description": (
-                "在用户已上传的文件中搜索指定关键词或短语，返回匹配段落的上下文。"
-                "当用户询问关于已上传文件的细节（如'托运人是谁'、'装货港在哪'、"
-                "'船期表中有没有去天津的船'）时调用此工具。"
-                "支持的文件格式：PDF、Excel、CSV、TXT。"
+                "读取并分析用户已上传的文件内容。支持 PDF、Excel、CSV、TXT 格式。"
+                "当用户询问文件中具体信息（如某字段值、某关键词出现位置、数据汇总等）时调用。"
+                "可指定关键词精确定位，也可不指定关键词返回全文概览。"
             ),
             "parameters": {
                 "type": "object",
@@ -398,20 +397,18 @@ TOOL_DESCRIPTIONS: List[Dict[str, Any]] = [
         "function": {
             "name": "generate_document",
             "description": (
-                "生成 PDF 文档。支持四种类型："
-                "1) schedule（船期确认函）— 红头公文格式的船期确认；"
-                "2) report（航运报告）— 红头公文格式的分析报告；"
-                "3) official（通用公文）— 红头公文格式的通知、函件等；"
-                "4) generic（通用格式）— 无红头无落款的简洁排版，适合非正式场景。"
-                "当用户要求生成非公文类文档（如说明书、总结、教程等）时使用 generic 类型。"
-                "生成成功后用户可下载 PDF 文件。"
+                "生成 PDF 文件。四种类型："
+                "schedule=船期确认函（红头公文）、"
+                "report=航运报告（红头公文）、"
+                "official=通用公文（红头公文）、"
+                "generic=简洁排版（无红头，适合说明书/总结等）。"
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "doc_type": {
                         "type": "string",
-                        "description": "文档类型：schedule（船期确认函）、report（航运报告）、official（通用公文）、generic（通用格式）",
+                        "description": "schedule=船期确认函 report=航运报告 official=公文 generic=简洁排版",
                         "enum": ["schedule", "report", "official", "generic"],
                     },
                     "title": {
