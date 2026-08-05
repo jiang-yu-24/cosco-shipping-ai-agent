@@ -26,6 +26,19 @@ st.markdown("""
 <style>
     footer {visibility: hidden;}
     .query-input textarea { font-size: 16px !important; }
+    /* 加载动画：三个点依次跳动 */
+    @keyframes dot-bounce {
+        0%, 80%, 100% { opacity: 0; }
+        40% { opacity: 1; }
+    }
+    .loading-dots span {
+        animation: dot-bounce 1.4s infinite;
+        font-size: 20px;
+        font-weight: bold;
+    }
+    .loading-dots span:nth-child(1) { animation-delay: 0s; }
+    .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -82,8 +95,6 @@ with st.sidebar:
 st.title("🚢 远航助手")
 st.caption("中远海运散货运输智能助理 · 船期查询 · 文件分析 · 实时信息")
 
-status_placeholder = st.empty()
-
 # ============================================================
 # 第1区：对话历史 / 欢迎框（上方）
 # ============================================================
@@ -125,6 +136,8 @@ else:
         "帮我生成一份船期确认函"
     )
 
+# 状态提示（对话区与输入框之间）
+status_placeholder = st.empty()
 st.divider()
 
 # ============================================================
@@ -150,7 +163,13 @@ with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=Fa
 # 第3区：查询处理（在表单之后，直接处理）
 # ============================================================
 if submit and user_query.strip():
-    status_placeholder.info("🤔 正在分析中，请稍候...")
+    status_placeholder.markdown(
+        '正在分析中，请稍候'
+        '<span class="loading-dots">'
+        '<span>.</span><span>.</span><span>.</span>'
+        '</span>',
+        unsafe_allow_html=True,
+    )
 
     try:
         if uploaded_file is not None:
