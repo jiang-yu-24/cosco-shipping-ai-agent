@@ -276,6 +276,47 @@ def generate_official_document(
     return _build(title, doc_no, elements, recipient)
 
 
+def _build_generic(title: str, elements: list) -> bytes:
+    """构建无公文格式的通用 PDF（无红头、无文号、无落款）。"""
+    _init_fonts()
+    styles = _make_styles()
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        topMargin=20 * mm, bottomMargin=15 * mm,
+        leftMargin=22 * mm, rightMargin=22 * mm,
+    )
+
+    story = []
+    # 简洁标题
+    story.append(Spacer(1, 10 * mm))
+    story.append(_p(title, styles, "title"))
+    story.append(Spacer(1, 8 * mm))
+
+    for elem in elements:
+        story.append(elem)
+
+    doc.build(story)
+    return buf.getvalue()
+
+
+def generate_generic_pdf(title: str, content: str) -> bytes:
+    """生成无公文格式的通用 PDF（简洁排版，适合非正式场景）。"""
+    _init_fonts()
+    styles = _make_styles()
+
+    elements = []
+    for para in content.strip().split("\n"):
+        para = para.strip()
+        if para:
+            elements.append(_p(para, styles, "body"))
+        else:
+            elements.append(Spacer(1, 3 * mm))
+
+    return _build_generic(title, elements)
+
+
 # ============================================================
 # 存储已生成的 PDF（供 app.py 下载）
 # ============================================================

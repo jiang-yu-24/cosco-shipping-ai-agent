@@ -250,13 +250,13 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
                       consignor: str = "", consignee: str = "",
                       recipient: str = "") -> str:
     """
-    生成规范化 PDF 文档（船期确认函/航运报告/通用公文）。
+    生成 PDF 文档（船期确认函/航运报告/通用公文/通用格式）。
 
-    当用户要求「生成一份船期确认函」「帮我出个报告」「起草一份通知」
-    等场景时调用此工具。生成后可下载 PDF 文件。
+    当用户要求生成文档时调用此工具。红头公文类用 schedule/report/official，
+    非正式文档（说明书、总结等）用 generic。生成后可下载 PDF 文件。
 
     参数:
-        doc_type: 文档类型 — "schedule"（船期确认函）、"report"（航运报告）、"official"（通用公文）
+        doc_type: 文档类型 — "schedule"（船期确认函）、"report"（航运报告）、"official"（通用公文）、"generic"（通用格式，无红头落款）
         title: 文档标题
         content: 正文内容（换行分段）
         route: [schedule] 航线
@@ -272,6 +272,7 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
         generate_schedule_confirmation,
         generate_shipping_report,
         generate_official_document,
+        generate_generic_pdf,
         store_pdf,
     )
 
@@ -306,10 +307,18 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
             )
             filename = f"公文_{title or '通知'}_{ts}.pdf"
 
+        elif doc_type == "generic":
+            pdf_bytes = generate_generic_pdf(
+                title=title or "文档",
+                content=content or "（无正文内容）",
+            )
+            filename = f"{title or '文档'}_{ts}.pdf"
+
         else:
             return (
                 f"❌ 不支持的文档类型「{doc_type}」。"
-                f"可选类型：schedule（船期确认函）、report（航运报告）、official（通用公文）"
+                f"可选类型：schedule（船期确认函）、report（航运报告）、"
+                f"official（通用公文）、generic（通用格式）"
             )
 
         store_pdf(pdf_bytes, filename)
@@ -389,11 +398,12 @@ TOOL_DESCRIPTIONS: List[Dict[str, Any]] = [
         "function": {
             "name": "generate_document",
             "description": (
-                "生成规范化 PDF 文档。支持三种类型："
-                "1) schedule（船期确认函）— 用于确认航线船期安排；"
-                "2) report（航运报告）— 生成分析报告；"
-                "3) official（通用公文）— 生成通知、函件等央企标准公文。"
-                "当用户要求「生成确认函」「出个报告」「起草通知」时调用此工具。"
+                "生成 PDF 文档。支持四种类型："
+                "1) schedule（船期确认函）— 红头公文格式的船期确认；"
+                "2) report（航运报告）— 红头公文格式的分析报告；"
+                "3) official（通用公文）— 红头公文格式的通知、函件等；"
+                "4) generic（通用格式）— 无红头无落款的简洁排版，适合非正式场景。"
+                "当用户要求生成非公文类文档（如说明书、总结、教程等）时使用 generic 类型。"
                 "生成成功后用户可下载 PDF 文件。"
             ),
             "parameters": {
@@ -401,8 +411,8 @@ TOOL_DESCRIPTIONS: List[Dict[str, Any]] = [
                 "properties": {
                     "doc_type": {
                         "type": "string",
-                        "description": "文档类型：schedule（船期确认函）、report（航运报告）、official（通用公文）",
-                        "enum": ["schedule", "report", "official"],
+                        "description": "文档类型：schedule（船期确认函）、report（航运报告）、official（通用公文）、generic（通用格式）",
+                        "enum": ["schedule", "report", "official", "generic"],
                     },
                     "title": {
                         "type": "string",
