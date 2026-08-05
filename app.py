@@ -26,16 +26,6 @@ st.markdown("""
 <style>
     footer {visibility: hidden;}
     .query-input textarea { font-size: 16px !important; }
-    /* 提交按钮：正方形，高度匹配输入框 */
-    button[type="submit"] {
-        width: 68px !important;
-        height: 68px !important;
-        min-width: 68px !important;
-        min-height: 68px !important;
-        font-size: 22px !important;
-        border-radius: 10px !important;
-        padding: 0 !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -141,17 +131,17 @@ st.divider()
 # ============================================================
 # 表单内：查询框 + 按钮（Enter 直接提交）
 with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=False):
-    col_input, col_btn = st.columns([9, 1])
+    col_input, col_btn = st.columns([5, 1])
     with col_input:
         user_query = st.text_area(
             "查询内容",
             placeholder="Shift+Enter 换行，Enter 直接查询",
             label_visibility="collapsed",
-            height=68,
+            height=64,
             key=f"query_input_{st.session_state.widget_key}",
         )
     with col_btn:
-        submit = st.form_submit_button("↑", type="primary")
+        submit = st.form_submit_button("↑", use_container_width=True, type="primary")
 
 # 表单外：文件上传（独立于查询，选择文件即解析）
 uploaded_file = st.file_uploader(
