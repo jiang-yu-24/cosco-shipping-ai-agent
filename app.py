@@ -129,25 +129,25 @@ st.divider()
 # ============================================================
 # 第2区：查询栏（st.form —— Enter 直接提交）
 # ============================================================
-# 表单内：查询框 + 按钮（Enter 直接提交）
+# 表单内：textarea（全宽）+ 下方按钮行（上下排列，无高度对齐问题）
 with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=False):
-    col_input, col_btn = st.columns([5, 1])
-    with col_input:
-        user_query = st.text_area(
-            "查询内容",
-            placeholder="Shift+Enter 换行，Enter 直接查询",
-            label_visibility="collapsed",
-            height=64,
-            key=f"query_input_{st.session_state.widget_key}",
-        )
+    user_query = st.text_area(
+        "查询内容",
+        placeholder="Shift+Enter 换行，Enter 直接查询",
+        label_visibility="collapsed",
+        height=64,
+        key=f"query_input_{st.session_state.widget_key}",
+    )
+    col_space, col_btn = st.columns([10, 1])
+    with col_space:
+        st.caption("")  # 占位，让按钮列右对齐
     with col_btn:
-        submit = st.form_submit_button("↑", use_container_width=True, type="primary")
+        submit = st.form_submit_button("↑", type="primary")
 
-# 表单外：文件上传（独立于查询，选择文件即解析）
+# 表单外：文件上传（即时解析）
 uploaded_file = st.file_uploader(
-    "上传文件进行分析（支持 PDF / Excel / CSV / TXT）",
+    "上传文件（PDF / Excel / CSV / TXT）",
     type=["pdf", "xlsx", "xls", "csv", "txt"],
-    help="上传后可在查询中对文件内容提问",
     label_visibility="visible",
     key=f"file_uploader_{st.session_state.widget_key}",
 )
