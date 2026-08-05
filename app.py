@@ -105,29 +105,10 @@ st.caption("中远海运散货运输智能助理 · 船期查询 · 文件分析
 status_placeholder = st.empty()
 
 # ============================================================
-# 第1区：查询栏（先渲染表单，拿到 submit/user_query 值）
+# 第1区：结果面板 / 欢迎框（上方）
 # ============================================================
-with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=False):
-    user_query = st.text_area(
-        "查询内容",
-        placeholder="Shift+Enter 换行，Enter 直接查询",
-        label_visibility="collapsed",
-        height=64,
-        key=f"query_input_{st.session_state.widget_key}",
-    )
-    uploaded_file = st.file_uploader(
-        "📎 上传文件（PDF / Excel / CSV / TXT）",
-        type=["pdf", "xlsx", "xls", "csv", "txt"],
-        label_visibility="visible",
-        key=f"file_uploader_{st.session_state.widget_key}",
-    )
-    submit = st.form_submit_button("↑ 发送", use_container_width=True, type="primary")
-
-# ============================================================
-# 第2区：结果面板 / 欢迎框（表单后渲染，能拿到真实 submit 值）
-# ============================================================
-if submit and user_query.strip():
-    # 正在处理中，不显示任何内容（欢迎框和结果都不显示）
+if st.session_state.get("_pending_query"):
+    # 有正在处理的查询，不显示欢迎框也不显示旧结果（spinner 替代）
     pass
 elif st.session_state.history:
     latest = st.session_state.history[0]
@@ -160,13 +141,41 @@ else:
 st.divider()
 
 # ============================================================
+# 第2区：查询栏（下方）
+# ============================================================
+with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=False):
+    user_query = st.text_area(
+        "查询内容",
+        placeholder="Shift+Enter 换行，Enter 直接查询",
+        label_visibility="collapsed",
+        height=64,
+        key=f"query_input_{st.session_state.widget_key}",
+    )
+    uploaded_file = st.file_uploader(
+        "📎 上传文件（PDF / Excel / CSV / TXT）",
+        type=["pdf", "xlsx", "xls", "csv", "txt"],
+        label_visibility="visible",
+        key=f"file_uploader_{st.session_state.widget_key}",
+    )
+    submit = st.form_submit_button("↑ 发送", use_container_width=True, type="primary")
+
+# ============================================================
 # 第3区：查询处理
 # ============================================================
 if submit and user_query.strip():
+    # 设置待处理标记，让上方欢迎框消失
+    st.session_state._pending_query = user_query.strip()
+    st.rerun()
+
+# 处理待处理标记（rerun 后执行）
+if st.session_state.get("_pending_query"):
     st.session_state.processing = True
     status_placeholder.info("🤔 正在分析中，请稍候...")
 
     try:
+        query_text = st.session_state._pending_query
+        del st.session_state._pending_query
+
         if uploaded_file is not None:
             file_text = parse_file_content(uploaded_file.getvalue(), uploaded_file.name)
             set_uploaded_file(file_text, uploaded_file.name)
@@ -177,14 +186,14 @@ if submit and user_query.strip():
             history_for_agent.append({"role": "user", "content": h["query"]})
             history_for_agent.append({"role": "assistant", "content": h["response"]})
 
-        query = user_query.strip()
+        query = query_text
         if st.session_state.file_loaded:
             file_content, file_name = get_uploaded_file_info()
             if file_content:
                 query = (
                     f"【用户已上传文件「{file_name}」，文件内容如下】\n\n"
                     f"{file_content}\n\n"
-                    f"【文件内容结束。用户的问题是】\n{user_query.strip()}"
+                    f"【文件内容结束。用户的问题是】\n{query_text}"
                 )
 
         response = run_agent(
@@ -199,15 +208,16 @@ if submit and user_query.strip():
             file_name = uploaded_file.name
 
         st.session_state.history.insert(0, {
-            "query": user_query.strip(),
+            "query": query_text,
             "response": response,
             "file_name": file_name,
             "file_data": file_data,
         })
 
-        set_uploaded_file("", "")
-        st.session_state.file_loaded = False
-        st.session_state.last_file_key = None
+        if uploaded_file is not None:
+            set_uploaded_file("", "")
+            st.session_state.file_loaded = False
+            st.session_state.last_file_key = None
         st.session_state.widget_key += 1
         st.session_state.processing = False
         status_placeholder.empty()
@@ -215,6 +225,8 @@ if submit and user_query.strip():
 
     except Exception:
         st.session_state.processing = False
+        if "_pending_query" in st.session_state:
+            del st.session_state._pending_query
         status_placeholder.error("❌ 系统繁忙，请稍后重试。")
 
 elif submit and not user_query.strip():
