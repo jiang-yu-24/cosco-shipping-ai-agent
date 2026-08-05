@@ -25,8 +25,17 @@ from fpdf import FPDF
 # 北京时间
 _CST = timezone(timedelta(hours=8), name="Asia/Shanghai")
 
+# 项目自带字体目录
+_PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
+_FONTS_DIR = os.path.join(_PROJECT_DIR, "fonts")
+
 # 中文字体候选路径（支持 glob 通配符）
 _FONT_GLOBS = [
+    # 项目自带字体（最高优先级，保证 Cloud 环境可用）
+    os.path.join(_FONTS_DIR, "DroidSansFallback.ttf"),
+    os.path.join(_FONTS_DIR, "*.ttf"),
+    os.path.join(_FONTS_DIR, "*.ttc"),
+    os.path.join(_FONTS_DIR, "*.otf"),
     # macOS
     "/System/Library/Fonts/PingFang.ttc",
     "/System/Library/Fonts/STHeiti*.ttc",
