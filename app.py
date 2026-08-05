@@ -26,6 +26,15 @@ st.markdown("""
 <style>
     footer {visibility: hidden;}
     .query-input textarea { font-size: 16px !important; }
+    /* 查询提交按钮：圆角方形 + 放大箭头（仅作用于表单内） */
+    form button[kind="primary"] {
+        border-radius: 10px !important;
+        font-size: 22px !important;
+        width: 48px !important;
+        height: 48px !important;
+        padding: 0 !important;
+        min-width: 48px !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
