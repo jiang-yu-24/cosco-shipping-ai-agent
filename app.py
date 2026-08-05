@@ -38,14 +38,19 @@ st.markdown("""
             ta.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    // 找到同一行或最近的 primary 按钮
-                    const btn = document.querySelector('button[kind="primary"]');
-                    if (btn) btn.click();
+                    // 从 textarea 向上找最近的 stHorizontalBlock，再找其中的 primary 按钮
+                    var block = ta.closest('[data-testid="stHorizontalBlock"]');
+                    if (block) {
+                        var btn = block.querySelector('button[kind="primary"]');
+                        if (btn) { btn.click(); return; }
+                    }
+                    // 兜底：页面中最后一个 primary 按钮（查询按钮渲染在最后）
+                    var btns = document.querySelectorAll('button[kind="primary"]');
+                    if (btns.length > 0) btns[btns.length - 1].click();
                 }
             });
         });
     }
-    // 初始绑定 + MutationObserver 监听动态渲染
     setupEnterSubmit();
     new MutationObserver(setupEnterSubmit).observe(document.body, {childList: true, subtree: true});
 })();
