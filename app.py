@@ -72,9 +72,16 @@ with st.sidebar:
     if st.session_state.history:
         for h in st.session_state.history[:10]:
             label = f"🔍 {h['query'][:30]}{'...' if len(h['query']) > 30 else ''}"
-            if h.get("file"):
-                label += f"  📎{h['file']}"
+            if h.get("file_name"):
+                label += f"  📎{h['file_name']}"
             with st.expander(label, expanded=False):
+                if h.get("file_data"):
+                    st.download_button(
+                        label=f"📥 下载 {h['file_name']}",
+                        data=h["file_data"],
+                        file_name=h["file_name"],
+                        mime="application/octet-stream",
+                    )
                 st.markdown(h["response"])
     else:
         st.caption("暂无查询记录")
@@ -182,10 +189,18 @@ if submit and user_query.strip():
             chat_history=history_for_agent if history_for_agent else None,
         )
 
+        # 存储文件内容到历史（用于侧边栏回溯下载）
+        file_data = None
+        file_name = None
+        if uploaded_file is not None:
+            file_data = uploaded_file.getvalue()
+            file_name = uploaded_file.name
+
         st.session_state.history.insert(0, {
             "query": user_query.strip(),
             "response": response,
-            "file": uploaded_file.name if uploaded_file else None,
+            "file_name": file_name,
+            "file_data": file_data,
         })
 
         set_uploaded_file("", "")
