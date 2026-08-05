@@ -105,9 +105,31 @@ st.caption("中远海运散货运输智能助理 · 船期查询 · 文件分析
 status_placeholder = st.empty()
 
 # ============================================================
-# 第1区：结果面板（最先渲染 → 显示在上方）
+# 第1区：查询栏（先渲染表单，拿到 submit/user_query 值）
 # ============================================================
-if st.session_state.history:
+with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=False):
+    user_query = st.text_area(
+        "查询内容",
+        placeholder="Shift+Enter 换行，Enter 直接查询",
+        label_visibility="collapsed",
+        height=64,
+        key=f"query_input_{st.session_state.widget_key}",
+    )
+    uploaded_file = st.file_uploader(
+        "📎 上传文件（PDF / Excel / CSV / TXT）",
+        type=["pdf", "xlsx", "xls", "csv", "txt"],
+        label_visibility="visible",
+        key=f"file_uploader_{st.session_state.widget_key}",
+    )
+    submit = st.form_submit_button("↑ 发送", use_container_width=True, type="primary")
+
+# ============================================================
+# 第2区：结果面板 / 欢迎框（表单后渲染，能拿到真实 submit 值）
+# ============================================================
+if submit and user_query.strip():
+    # 正在处理中，不显示任何内容（欢迎框和结果都不显示）
+    pass
+elif st.session_state.history:
     latest = st.session_state.history[0]
 
     st.subheader("📋 查询结果")
@@ -126,7 +148,7 @@ if st.session_state.history:
             data=pdf_data, file_name=pdf_name,
             mime="application/pdf", type="primary",
         )
-elif not st.session_state.processing:
+else:
     st.info(
         "欢迎使用远航助手！请在下方框内输入指令。\n\n"
         "试试这些：\n"
@@ -138,26 +160,6 @@ elif not st.session_state.processing:
 st.divider()
 
 # ============================================================
-# 第2区：查询栏（st.form —— Enter 直接提交）
-# ============================================================
-# 表单：textarea → 文件上传 → 发送按钮
-with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=False):
-    user_query = st.text_area(
-        "查询内容",
-        placeholder="Shift+Enter 换行，Enter 直接查询",
-        label_visibility="collapsed",
-        height=64,
-        key=f"query_input_{st.session_state.widget_key}",
-    )
-    uploaded_file = st.file_uploader(
-        "📎 上传文件（PDF / Excel / CSV / TXT）",
-        type=["pdf", "xlsx", "xls", "csv", "txt"],
-        label_visibility="visible",
-        key=f"file_uploader_{st.session_state.widget_key}",
-    )
-    submit = st.form_submit_button("↑ 发送", use_container_width=True, type="primary")
-
-# ============================================================
 # 第3区：查询处理
 # ============================================================
 if submit and user_query.strip():
@@ -165,7 +167,6 @@ if submit and user_query.strip():
     status_placeholder.info("🤔 正在分析中，请稍候...")
 
     try:
-        # 解析上传文件（表单内，提交时才拿到文件）
         if uploaded_file is not None:
             file_text = parse_file_content(uploaded_file.getvalue(), uploaded_file.name)
             set_uploaded_file(file_text, uploaded_file.name)
@@ -191,7 +192,6 @@ if submit and user_query.strip():
             chat_history=history_for_agent if history_for_agent else None,
         )
 
-        # 存储文件内容到历史（用于侧边栏回溯下载）
         file_data = None
         file_name = None
         if uploaded_file is not None:
