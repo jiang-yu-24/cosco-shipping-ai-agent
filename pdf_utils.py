@@ -77,13 +77,60 @@ def _find_chinese_font() -> Optional[str]:
             capture_output=True, text=True, timeout=5,
         )
         if result.returncode == 0 and result.stdout.strip():
-            # 取第一个结果的文件路径（格式：/path/to/font.ttf: Font Name）
             first_line = result.stdout.strip().split("\n")[0]
             font_path = first_line.split(":")[0].strip()
             if os.path.isfile(font_path):
                 _FONT_PATH = font_path
                 return _FONT_PATH
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+
+    # 3. fc-list 查询任意字体（部分环境 fc-list 不支持 :lang 过滤）
+    try:
+        result = subprocess.run(
+            ["fc-list", "file"],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            for line in result.stdout.strip().split("\n"):
+                font_path = line.split(":")[0].strip()
+                name_lower = line.lower()
+                if any(kw in name_lower for kw in ("cjk", "noto", "wqy", "song", "hei", "ming", "kai", "fang")):
+                    if os.path.isfile(font_path):
+                        _FONT_PATH = font_path
+                        return _FONT_PATH
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        pass
+
+    # 4. 运行时下载兜底：从 GitHub 获取 Noto Sans SC
+    try:
+        _FONT_PATH = _download_cjk_font()
+        if _FONT_PATH:
+            return _FONT_PATH
+    except Exception:
+        pass
+
+    return None
+
+
+def _download_cjk_font() -> Optional[str]:
+    """下载 Noto Sans SC 字体到 /tmp/ 作为最后兜底。"""
+    import urllib.request
+
+    font_url = (
+        "https://github.com/googlefonts/noto-cjk/raw/main/Sans/OTF/SimplifiedChinese/"
+        "NotoSansCJKsc-Regular.otf"
+    )
+    font_path = "/tmp/NotoSansCJKsc-Regular.otf"
+
+    if os.path.exists(font_path):
+        return font_path
+
+    try:
+        urllib.request.urlretrieve(font_url, font_path)
+        if os.path.getsize(font_path) > 10000:  # 至少 10KB
+            return font_path
+    except Exception:
         pass
 
     return None
@@ -257,7 +304,7 @@ def generate_schedule_confirmation(
 
     pdf.signature_block()
 
-    return pdf.output()
+    return bytes(pdf.output())
 
 
 def generate_shipping_report(
@@ -299,7 +346,7 @@ def generate_shipping_report(
     pdf.ln(6)
     pdf.signature_block()
 
-    return pdf.output()
+    return bytes(pdf.output())
 
 
 def generate_official_document(
@@ -342,7 +389,7 @@ def generate_official_document(
     pdf.ln(6)
     pdf.signature_block()
 
-    return pdf.output()
+    return bytes(pdf.output())
 
 
 # ============================================================
@@ -356,7 +403,7 @@ _generated_pdf_name: str = ""
 def store_pdf(pdf_bytes: bytes, filename: str) -> None:
     """存储生成的 PDF 供前端下载。"""
     global _generated_pdf, _generated_pdf_name
-    _generated_pdf = pdf_bytes
+    _generated_pdf = bytes(pdf_bytes)
     _generated_pdf_name = filename
 
 
