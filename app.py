@@ -71,7 +71,10 @@ with st.sidebar:
     st.subheader("📜 历史记录")
     if st.session_state.history:
         for h in st.session_state.history[:10]:
-            with st.expander(f"🔍 {h['query'][:30]}{'...' if len(h['query']) > 30 else ''}", expanded=False):
+            label = f"🔍 {h['query'][:30]}{'...' if len(h['query']) > 30 else ''}"
+            if h.get("file"):
+                label += f"  📎{h['file']}"
+            with st.expander(label, expanded=False):
                 st.markdown(h["response"])
     else:
         st.caption("暂无查询记录")
@@ -182,6 +185,7 @@ if submit and user_query.strip():
         st.session_state.history.insert(0, {
             "query": user_query.strip(),
             "response": response,
+            "file": uploaded_file.name if uploaded_file else None,
         })
 
         set_uploaded_file("", "")
