@@ -148,14 +148,6 @@ uploaded_file = st.file_uploader(
     key=f"file_uploader_{st.session_state.widget_key}",
 )
 
-# 表单外：文件上传（即时解析）
-uploaded_file = st.file_uploader(
-    "上传文件（PDF / Excel / CSV / TXT）",
-    type=["pdf", "xlsx", "xls", "csv", "txt"],
-    label_visibility="visible",
-    key=f"file_uploader_{st.session_state.widget_key}",
-)
-
 if uploaded_file is not None:
     file_key = f"{uploaded_file.name}_{uploaded_file.size}"
     if st.session_state.last_file_key != file_key:
