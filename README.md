@@ -2,21 +2,28 @@
 
 基于 **DeepSeek + Streamlit** 构建的航运业务 AI 智能助理，实现完整的 **ReAct（推理-执行-观察）** Agent 闭环。
 
+🌐 **线上 Demo**：[https://cosco-bulk-agent.streamlit.app](https://cosco-bulk-agent.streamlit.app)
+
 ## ✨ 功能特性
 
 - 🧠 **ReAct 循环引擎**：大模型推理 → 本地工具调用 → 结果观察反馈，完整闭环
 - 🔧 **可扩展工具框架**：符合 OpenAI Function Calling 规范，轻松接入新工具
-- 💬 **多轮对话**：基于 Streamlit 的聊天界面，支持历史上下文记忆
+- 📎 **文件分析**：上传 PDF / Excel / CSV / TXT，Agent 基于文件内容智能回答
+- 📄 **PDF 文档生成**：自动生成船期确认函、航运报告、央企标准公文（红头格式）
 - 🖥️ **跨平台兼容**：macOS (Apple Silicon) / Windows 均可运行
+- 🎨 **Agent 应用风格 UI**：查询栏 + 结果面板 + 历史记录，非聊天对话模式
 
 ## 📁 项目结构
 
 ```
 my_agent/
-├── app.py                # Streamlit 前端界面
+├── app.py                # Streamlit 前端界面（Agent应用风格）
 ├── agent_core.py         # Agent 核心引擎（ReAct 循环）
-├── tools.py              # 工具函数定义（业务逻辑占位）
+├── tools.py              # 工具函数定义 + 工具注册表
+├── pdf_utils.py          # PDF 文档生成模块（央企公文模板）
 ├── requirements.txt      # Python 依赖清单
+├── packages.txt          # Streamlit Cloud 系统依赖（CJK 字体）
+├── git_push.sh           # 一键提交推送脚本（含自动重试）
 ├── setup_mac.sh          # 🍎 Mac 一键环境配置脚本
 ├── setup_windows.bat     # 🪟 Windows 一键环境配置脚本
 ├── .env.example          # 环境变量模板
@@ -24,13 +31,24 @@ my_agent/
 └── README.md             # 本文件
 ```
 
+## 🛠️ Agent 工具能力
+
+| 工具 | 说明 | 前端可见 |
+|------|------|---------|
+| 🚢 散货船期查询 | 查询指定航线的船期、船名、货种等信息 | ✅ |
+| 🔍 文件内容检索 | 在已上传文件中搜索关键词 | ✅ |
+| ⏱️ 实时时间查询 | 获取当前北京时间 | ❌ 隐藏 |
+| 📄 PDF 文档生成 | 生成船期确认函/航运报告/通用公文 | ❌ 隐藏 |
+
+> 隐藏工具仅供 Agent 内部调用，不显示在侧边栏"服务能力"中。
+
 ---
 
 ## 🍎 MacBook (Apple Silicon) 快速启动
 
 ```bash
 cd Agent4cosco/my_agent
-chmod +x setup_mac.sh
+chmod +x setup_mac.sh git_push.sh
 ./setup_mac.sh
 ```
 
@@ -73,14 +91,27 @@ DEEPSEEK_API_KEY=sk-your-api-key-here
 
 ---
 
+## 🚀 一键提交推送
+
+```bash
+./git_push.sh "你的提交信息"
+```
+
+脚本会自动重试 5 次（间隔递增），网络不稳定时无需手动反复执行。如果开了 VPN 仍失败，考虑切换为 SSH：
+```bash
+git remote set-url origin git@github.com:jiang-yu-24/cosco-shipping-ai-agent.git
+```
+
+---
+
 ## 💬 使用示例
 
-| 示例问题 | 调用的工具 |
-|---------|-----------|
-| `现在几点了？` | `get_current_time` |
-| `查一下西澳-青岛的船期` | `query_shipping_schedule` |
-| `巴西到天津的船什么时候到？` | `query_shipping_schedule` |
-| `印尼-湛江航线是哪条船？` | `query_shipping_schedule` |
+| 场景 | 输入示例 |
+|------|---------|
+| 船期查询 | `查一下西澳-青岛的船期` |
+| 文件分析 | 上传提单 PDF → `这份提单的托运人是谁？` |
+| PDF 生成 | `帮我生成一份西澳-青岛航线的船期确认函` |
+| 报告生成 | `整理一份本周航运动态报告` |
 
 ---
 
@@ -88,17 +119,17 @@ DEEPSEEK_API_KEY=sk-your-api-key-here
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                   Streamlit 前端                  │
-│              (app.py — 聊天界面)                   │
+│              Streamlit 前端 (app.py)              │
+│          Agent应用风格：查询栏 + 结果面板          │
 └─────────────────────┬───────────────────────────┘
-                      │ 用户输入
+                      │
                       ▼
 ┌─────────────────────────────────────────────────┐
-│            Agent 核心引擎 (agent_core.py)          │
+│          Agent 核心引擎 (agent_core.py)            │
 │                                                   │
 │   ┌──────────┐    ┌──────────┐    ┌──────────┐  │
 │   │ Reason   │───▶│   Act    │───▶│ Observe  │  │
-│   │ (DeepSeek)│    │(tools.py)│    │ (反馈)    │  │
+│   │(DeepSeek)│    │(tools.py)│    │ (反馈)    │  │
 │   └──────────┘    └──────────┘    └──────────┘  │
 │         ▲                              │          │
 │         └────────  ReAct 循环 ◀────────┘          │
@@ -107,47 +138,38 @@ DEEPSEEK_API_KEY=sk-your-api-key-here
 
 ---
 
-## 📦 提交清单
+## 📦 Streamlit Cloud 部署
 
-演示提交前逐项检查：
+已部署至：**[cosco-bulk-agent.streamlit.app](https://cosco-bulk-agent.streamlit.app)**
 
-- [ ] `.env` 文件已加入 `.gitignore`（API Key 绝对不能泄露）
-- [ ] `requirements.txt` 依赖完整可复现
-- [ ] 代码在 macOS 和 Windows 上均可 `pip install -r requirements.txt` 后直接运行
-- [ ] README 中包含清晰的启动步骤
-- [ ] 准备至少 3 个可演示的业务场景（对应不同的工具调用）
-- [ ] （加分项）部署到 Streamlit Cloud，提供线上 Demo 链接
+如需重新部署：
+1. Push 到 GitHub → Streamlit Cloud 自动检测更新并重新部署
+2. 或访问 [share.streamlit.io](https://share.streamlit.io) 手动 "Rerun"
 
-### Streamlit Cloud 部署（2 分钟搞定）
+**Cloud Secrets 配置：**
+```
+DEEPSEEK_API_KEY = "sk-你的密钥"
+```
 
-1. 把项目 push 到 GitHub **公开仓库**
-2. 打开 [share.streamlit.io](https://share.streamlit.io)，用 GitHub 登录
-3. 点 "New app" → 选择仓库 → 主文件路径填 `my_agent/app.py`
-4. 在 Advanced Settings 中添加 Secret：`DEEPSEEK_API_KEY = sk-xxx`
-5. 点 Deploy，2 分钟后得到 `https://xxx.streamlit.app` 链接
-
-> 💡 线上链接让评委**即点即用**，省去本地环境配置环节，体验完全不同。
+**注意：** 项目包含 `packages.txt`（安装 CJK 字体），首次部署或清除缓存后需等待字体安装完成（约多 1 分钟）。
 
 ---
 
 ## 🔧 扩展指南
 
-### 添加新工具
+### 添加新工具（前端可见）
 
 1. 在 `tools.py` 中编写工具函数
-2. 在 `TOOL_DESCRIPTIONS` 列表中添加函数定义（OpenAI Function Calling 格式）
-3. 在 `TOOL_MAPPING` 字典中注册函数映射
+2. 添加到 `TOOL_DESCRIPTIONS`、`TOOL_MAPPING`、`TOOL_DISPLAY_NAMES`
+3. Agent 自动发现并使用
 
-Agent 会自动发现并使用新工具，无需修改 `agent_core.py`。
+### 添加隐藏工具（仅 Agent 可用）
 
-### 替换为真实业务接口
+同上，但不添加到 `TOOL_DISPLAY_NAMES` 即可，侧边栏不显示。
 
-`tools.py` 顶部已标注为"业务逻辑占位"。实际项目中，将工具函数体替换为：
-- 企业数据中台 API 调用
-- 合同/提单 OCR 解析
-- AIS 船舶轨迹查询
-- 散货运价指数接口
-- 内部 RAG 知识库检索
+### PDF 文档模板
+
+在 `pdf_utils.py` 中添加新模板函数，然后在 `tools.py` 的 `generate_document` 中增加 `doc_type` 分支。
 
 ---
 
@@ -156,9 +178,10 @@ Agent 会自动发现并使用新工具，无需修改 `agent_core.py`。
 | 组件 | 技术 | 说明 |
 |------|------|------|
 | 大模型 | DeepSeek (via OpenAI SDK) | `base_url=https://api.deepseek.com` |
-| 前端 | Streamlit | 纯 Python，无需前端代码 |
-| 环境管理 | python-dotenv | `.env` 文件管理敏感配置 |
-| 平台 | macOS / Windows | Apple Silicon & x86 均可 |
+| 前端 | Streamlit | Agent 应用风格 UI |
+| PDF 生成 | fpdf2 | 央企公文红头格式 |
+| 文件解析 | PyPDF2 + openpyxl | PDF / Excel / CSV / TXT |
+| 环境管理 | python-dotenv | `.env` + Streamlit Secrets |
 
 ---
 
