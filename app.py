@@ -69,26 +69,6 @@ with st.sidebar:
 
     st.divider()
 
-    st.subheader("📜 历史记录")
-    if st.session_state.history:
-        for h in st.session_state.history[:10]:
-            label = f"🔍 {h['query'][:30]}{'...' if len(h['query']) > 30 else ''}"
-            if h.get("file_name"):
-                label += f"  📎{h['file_name']}"
-            with st.expander(label, expanded=False):
-                if h.get("file_data"):
-                    st.download_button(
-                        label=f"📥 下载 {h['file_name']}",
-                        data=h["file_data"],
-                        file_name=h["file_name"],
-                        mime="application/octet-stream",
-                    )
-                st.markdown(h["response"])
-    else:
-        st.caption("暂无查询记录")
-
-    st.divider()
-
     if st.button("🗑️ 清空历史", use_container_width=True, type="secondary"):
         st.session_state.history = []
         st.rerun()
@@ -105,16 +85,26 @@ st.caption("中远海运散货运输智能助理 · 船期查询 · 文件分析
 status_placeholder = st.empty()
 
 # ============================================================
-# 第1区：结果面板 / 欢迎框（上方）
+# 第1区：对话历史 / 欢迎框（上方）
 # ============================================================
 if st.session_state.history:
-    latest = st.session_state.history[0]
+    # 从旧到新展示所有对话
+    for h in reversed(st.session_state.history):
+        with st.chat_message("user"):
+            st.markdown(h["query"])
+        with st.chat_message("assistant"):
+            st.markdown(h["response"])
+            # 如果有关联文件，提供下载
+            if h.get("file_data"):
+                st.download_button(
+                    label=f"📥 下载 {h['file_name']}",
+                    data=h["file_data"],
+                    file_name=h["file_name"],
+                    mime="application/octet-stream",
+                    key=f"hist_dl_{h['query'][:20]}",
+                )
 
-    st.subheader("📋 查询结果")
-    with st.container(border=True):
-        st.caption(f"🔍 查询：{latest['query'][:100]}{'...' if len(latest['query']) > 100 else ''}")
-        st.markdown(latest["response"])
-
+    # PDF 生成下载按钮
     try:
         from pdf_utils import get_pdf
         pdf_data, pdf_name = get_pdf()
