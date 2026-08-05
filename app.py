@@ -1,14 +1,14 @@
 """
 Streamlit 前端界面 — 中远海运散货 AI 助理「远航助手」
 ====================================================
-布局：左侧边栏（服务列表 + 文件状态）+ 右侧主区（聊天窗口 + 上传 + 输入框）
+Agent 应用风格布局：上方查询栏 + 下方结果面板 + 历史记录
 """
 
 import os
 import streamlit as st
 
 # ============================================================
-# 环境适配：Streamlit Cloud Secrets → os.environ
+# 环境适配
 # ============================================================
 if "DEEPSEEK_API_KEY" in st.secrets:
     os.environ["DEEPSEEK_API_KEY"] = st.secrets["DEEPSEEK_API_KEY"]
@@ -35,30 +35,45 @@ st.markdown("""
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
-    /* 文件上传按钮紧凑样式 */
-    div[data-testid="stFileUploader"] {width: 52px;}
-    div[data-testid="stFileUploader"] section {padding: 0;}
+    /* 查询输入框增大字体 */
+    .query-input textarea {
+        font-size: 16px !important;
+    }
+    /* 结果卡片 */
+    .result-card {
+        background: #f8fafb;
+        border-left: 4px solid #1a6fb5;
+        padding: 16px 20px;
+        border-radius: 4px;
+        margin: 8px 0 24px 0;
+    }
+    /* 历史条目 */
+    .history-item {
+        border-bottom: 1px solid #eee;
+        padding: 12px 0;
+    }
+    .history-query {
+        color: #1a6fb5;
+        font-weight: 600;
+        font-size: 14px;
+    }
+    .history-result {
+        color: #333;
+        font-size: 13px;
+        margin-top: 4px;
+        white-space: pre-line;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ============================================================
-# 会话状态初始化（必须在 sidebar 之前）
+# 会话状态初始化
 # ============================================================
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+if "history" not in st.session_state:
+    st.session_state.history = []          # [{query, response}]
     st.session_state.file_loaded = False
     st.session_state.last_file_key = None
-    st.session_state.messages.append({
-        "role": "assistant",
-        "content": (
-            "👋 您好！我是**远航助手**，您的智能航运服务助理。\n\n"
-            "我目前可以帮您：\n"
-            "• 📅 查询当前日期和时间\n"
-            "• 🚢 查询散货船期信息（支持：西澳-青岛、巴西-天津、印尼-湛江）\n"
-            "• 📎 分析上传的文件（支持 PDF / Excel / CSV / TXT）\n\n"
-            "请上传文件或直接向我提问！"
-        ),
-    })
+    st.session_state.pending_query = None  # 待处理的查询
 
 # ============================================================
 # 左侧边栏
@@ -68,7 +83,6 @@ with st.sidebar:
     st.markdown("*智能航运服务平台*")
     st.divider()
 
-    # 文件状态（仅在已加载时显示）
     if st.session_state.file_loaded:
         st.subheader("📎 已加载文件")
         _, file_name = get_uploaded_file_info()
@@ -80,7 +94,6 @@ with st.sidebar:
             st.rerun()
         st.divider()
 
-    # 服务能力
     st.subheader("🔧 服务能力")
     st.caption(f"共 {len(TOOL_NAMES)} 项服务")
     for tool in TOOL_DESCRIPTIONS:
@@ -91,9 +104,8 @@ with st.sidebar:
 
     st.divider()
 
-    # 清空对话
-    if st.button("🗑️ 清空对话", use_container_width=True, type="secondary"):
-        st.session_state.messages = []
+    if st.button("🗑️ 清空历史", use_container_width=True, type="secondary"):
+        st.session_state.history = []
         st.rerun()
 
     st.divider()
@@ -103,22 +115,35 @@ with st.sidebar:
 # 右侧主区域
 # ============================================================
 st.title("🚢 远航助手")
-st.markdown("中远海运散货运输智能助理，为您提供船期查询、航运信息等服务")
+st.caption("中远海运散货运输智能助理 · 船期查询 · 文件分析 · 实时信息")
 
-# 渲染历史消息
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# ============================================================
+# 上方查询栏
+# ============================================================
+# 第一行：查询输入 + 查询按钮
+col_input, col_btn = st.columns([8, 1])
+with col_input:
+    user_query = st.text_area(
+        "查询内容",
+        placeholder="请输入您的查询，例如：查一下西澳-青岛的船期，或 这份提单的托运人是谁？",
+        label_visibility="collapsed",
+        height=68,
+        key="query_input",
+    )
+with col_btn:
+    st.write("")  # 对齐
+    submit = st.button("🚀 查询", use_container_width=True, type="primary")
 
-# 文件上传（紧凑一行，位于输入框上方）
+# 第二行：文件上传（占一整行）
 uploaded_file = st.file_uploader(
-    "📎 上传文件（支持 PDF / Excel / CSV / TXT）",
+    "📎 上传文件进行分析（支持 PDF / Excel / CSV / TXT，上传后查询将基于文件内容回答）",
     type=["pdf", "xlsx", "xls", "csv", "txt"],
-    help="上传后可在对话中对文件内容提问，例如「这份提单的托运人是谁？」",
+    help="上传后可在查询中对文件内容提问，例如「这份提单的托运人是谁？」",
     label_visibility="visible",
     key="file_uploader_main",
 )
 
+# 处理文件上传
 if uploaded_file is not None:
     file_key = f"{uploaded_file.name}_{uploaded_file.size}"
     if st.session_state.last_file_key != file_key:
@@ -129,48 +154,81 @@ if uploaded_file is not None:
         st.session_state.file_loaded = True
         st.rerun()
 
-# 聊天输入框
-user_input = st.chat_input(placeholder="请输入您的问题...")
-
-st.caption("💬 例如：*现在几点了？*  |  *查一下西澳-青岛的船期*  |  *这份提单的托运人是谁？*")
+st.divider()
 
 # ============================================================
-# 处理用户输入
+# 执行查询
 # ============================================================
-if user_input:
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
+if submit and user_query.strip():
+    with st.spinner("🤔 正在分析中..."):
+        try:
+            # 构建历史上下文
+            history_for_agent = []
+            for h in st.session_state.history:
+                history_for_agent.append({"role": "user", "content": h["query"]})
+                history_for_agent.append({"role": "assistant", "content": h["response"]})
 
-    with st.chat_message("assistant"):
-        with st.spinner("🤔 正在思考中..."):
-            try:
-                # 构建历史上下文
-                history_for_agent = [
-                    {"role": m["role"], "content": m["content"]}
-                    for m in st.session_state.messages[:-1]
-                    if m["role"] in ("user", "assistant")
-                ]
+            # 注入文件内容
+            query = user_query.strip()
+            if st.session_state.file_loaded:
+                file_content, file_name = get_uploaded_file_info()
+                if file_content:
+                    query = (
+                        f"【用户已上传文件「{file_name}」，文件内容如下】\n\n"
+                        f"{file_content}\n\n"
+                        f"【文件内容结束。用户的问题是】\n{user_query.strip()}"
+                    )
 
-                # 注入文件内容
-                query = user_input
-                if st.session_state.file_loaded:
-                    file_content, file_name = get_uploaded_file_info()
-                    if file_content:
-                        query = (
-                            f"【用户已上传文件「{file_name}」，文件内容如下】\n\n"
-                            f"{file_content}\n\n"
-                            f"【文件内容结束。用户的问题是】\n{user_input}"
-                        )
+            response = run_agent(
+                user_query=query,
+                chat_history=history_for_agent if history_for_agent else None,
+            )
 
-                response = run_agent(
-                    user_query=query,
-                    chat_history=history_for_agent if history_for_agent else None,
-                )
-                st.markdown(response)
-                st.session_state.messages.append({"role": "assistant", "content": response})
+            # 存入历史
+            st.session_state.history.insert(0, {
+                "query": user_query.strip(),
+                "response": response,
+            })
 
-            except Exception:
-                error_msg = "❌ 系统繁忙，请稍后重试。如持续出现此问题，请联系管理员。"
-                st.error(error_msg)
-                st.session_state.messages.append({"role": "assistant", "content": error_msg})
+        except Exception:
+            st.error("❌ 系统繁忙，请稍后重试。")
+
+elif submit and not user_query.strip():
+    st.warning("请输入查询内容")
+
+# ============================================================
+# 最新结果面板
+# ============================================================
+if st.session_state.history:
+    latest = st.session_state.history[0]
+
+    st.subheader("📋 查询结果")
+    st.markdown(f"""
+    <div class="result-card">
+        <div style="color:#888;font-size:12px;margin-bottom:8px;">
+            🔍 查询：{latest['query'][:100]}{'...' if len(latest['query']) > 100 else ''}
+        </div>
+        <div style="line-height:1.8;">{latest['response']}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ============================================================
+    # 历史记录
+    # ============================================================
+    if len(st.session_state.history) > 1:
+        st.subheader("📜 历史记录")
+        for i, h in enumerate(st.session_state.history[1:], 1):
+            with st.expander(f"🔍 {h['query'][:60]}{'...' if len(h['query']) > 60 else ''}", expanded=False):
+                st.markdown(h["response"])
+
+# ============================================================
+# 欢迎状态（无历史时的初始界面）
+# ============================================================
+else:
+    st.info(
+        "👋 欢迎使用远航助手！请在上方输入您的查询内容，点击「查询」按钮开始。\n\n"
+        "**试试这些：**\n"
+        "• 现在几点了？\n"
+        "• 查一下西澳-青岛的船期\n"
+        "• 上传一份提单 PDF，问：这份提单的托运人是谁？"
+    )
