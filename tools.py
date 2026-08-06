@@ -474,12 +474,13 @@ TOOL_DESCRIPTIONS: List[Dict[str, Any]] = [
         "function": {
             "name": "generate_document",
             "description": (
-                "生成 PDF 文件。五种类型："
-                "schedule=船期确认函（红头公文）、"
-                "report=航运报告（红头公文）、"
-                "official=通用公文（红头公文）、"
-                "generic=简洁排版（无红头）、"
-                "proposal=数字化项目方案（央企标准格式，含封面+签审页）。"
+                "生成 PDF 文档。根据用户意图选择类型：\n"
+                "- 用户提到「船期」「确认函」「船运安排」→ 用 schedule\n"
+                "- 用户提到「分析报告」「航运报告」「周报」→ 用 report\n"
+                "- 用户提到「通知」「函件」「请示」「批复」「决定」→ 用 official\n"
+                "- 用户提到「说明书」「教程」「手册」「总结」「指南」→ 用 generic\n"
+                "- 用户提到「项目方案」「建设方案」「实施方案」「立项」「规划」「可研」→ 用 proposal\n"
+                "proposal 会生成央企标准格式：封面+分章节正文+签审页。"
             ),
             "parameters": {
                 "type": "object",
