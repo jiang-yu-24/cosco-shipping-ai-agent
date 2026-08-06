@@ -141,7 +141,9 @@ def _wrap_cjk(text: str) -> str:
         else:
             result.append(segment)
 
-    return "".join(result)
+    # 额外：CJK 禁则处理，防止标点出现在行首
+    result = _fix_line_start_punct("".join(result))
+    return result
 
 
 def _make_styles():
@@ -184,10 +186,42 @@ def _make_styles():
 
 
 def _p(text: str, styles: dict, key: str = "body") -> Paragraph:
-    """创建段落：自动 <br/> 换行 + CJK 字体混排。"""
+    """创建段落：CJK 禁则处理 + <br/> 换行 + CJK 字体混排。"""
     text = text.replace("\n", "<br/>")
     text = _wrap_cjk(text)
+    # CJK 禁则：标点不出现在行首
+    text = _fix_line_start_punct(text)
     return Paragraph(text, styles[key])
+
+
+def _fix_line_start_punct(text: str) -> str:
+    """
+    在 CJK 标点前插入 Word Joiner (U+2060)，防止其出现在行首。
+    覆盖：， 。 、 》 」 』 】 ！ ？ ％ … —  ～  ：
+    同时处理全角右括号和全角标点。
+    """
+    # 不能在行首的字符
+    forbidden = (
+        "，。、》」』】"
+        "！？％…—～："
+        "）］”’″′"
+        "〉《"  # 《 》的首字符不处理
+    )
+    # 半角版本
+    forbidden += ",.;:!?%)}]’”"
+
+    result = []
+    prev_cjk = False
+    for ch in text:
+        cp = ord(ch)
+        is_cjk = (0x4E00 <= cp <= 0x9FFF or 0x3000 <= cp <= 0x303F or
+                  0xFF00 <= cp <= 0xFFEF or 0x3400 <= cp <= 0x4DBF)
+        if ch in forbidden and prev_cjk:
+            result.append("⁠" + ch)
+        else:
+            result.append(ch)
+        prev_cjk = is_cjk
+    return "".join(result)
 
 
 def _table(rows: list, col_widths: list, styles: dict) -> Table:

@@ -90,6 +90,11 @@ def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = No
             "重要：只要用户提到了上述任一关键词，就必须调用 generate_document 工具生成 PDF，"
             "而不是先回答文字再说'需要的话我可以帮你生成'。"
             ""
+            "【文件处理规则】"
+            "当用户同时上传了文件并要求生成 PDF 时，必须先调用 search_file_content "
+            "从文件中提取关键信息，再基于提取的信息调用 generate_document 生成 PDF。"
+            "如果文件内容不足以生成完整文档，应告知用户缺少哪些信息。"
+            ""
             "回答时请使用专业但友好的语气。所有回复请使用中文。"
         ),
     }
