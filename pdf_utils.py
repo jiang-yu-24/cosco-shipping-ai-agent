@@ -183,8 +183,29 @@ def _make_styles():
     }
 
 
+# CJK 标点禁则：这些字符不应出现在行首。在其前面插入 NBSP( ) 阻止独立断行。
+_FORBIDDEN_LINE_START = set(
+    "，。、》」』】！？％…—～：）］”'″′〉"
+    + ",.;:!?%)}]'\""
+)
+
+
+def _kinsoku(text: str) -> str:
+    """
+    CJK 禁则处理：在不能出现在行首的标点前插入 NBSP ( )，
+    确保标点与前面的字符在同行。NBSP 是标准 Unicode 空格，所有字体原生支持。
+    """
+    result = []
+    for i, ch in enumerate(text):
+        if ch in _FORBIDDEN_LINE_START and i > 0 and text[i - 1] not in (" ", "\n", " "):
+            result.append(" ")
+        result.append(ch)
+    return "".join(result)
+
+
 def _p(text: str, styles: dict, key: str = "body") -> Paragraph:
-    """创建段落：<br/> 换行 + CJK 字体混排。"""
+    """创建段落：禁则处理 + <br/> 换行 + CJK 字体混排。"""
+    text = _kinsoku(text)
     text = text.replace("\n", "<br/>")
     text = _wrap_cjk(text)
     return Paragraph(text, styles[key])
@@ -440,24 +461,25 @@ def generate_proposal(
     # 封面分隔线
     story.append(_red_line(1.0, 8))
 
-    # --- 正文：按章节解析 ---
-    sections = content.strip().split("\n#")
-    for i, sec in enumerate(sections):
+    # --- 正文：按章节解析（支持「一、」「二、」格式和「#」格式） ---
+    import re
+    # 按中文序号标题分割：一、二、三、... 或 # 开头
+    sections = re.split(r"\n(?=[一二三四五六七八九十]、|\d+、|# )", content.strip())
+    if len(sections) <= 1:
+        # 无章节分割，整个内容作为正文
+        sections = [content.strip()]
+
+    for sec in sections:
         sec = sec.strip()
         if not sec:
             continue
 
-        # 第一个章节可能有 "# " 前缀，后续章节在 split 时去掉了 "#"
-        if i == 0 and sec.startswith("# "):
-            sec = sec[2:]
-        elif i == 0 and sec.startswith("#"):
-            sec = sec[1:]
-
         # 提取章节标题和正文
         lines = sec.split("\n", 1)
         heading = lines[0].strip()
-        # 去掉可能的 "##" 前缀（二级标题）
-        heading = heading.lstrip("#").strip()
+        # 清理标题前缀（# 或 中文序号）
+        heading = re.sub(r'^[#\s]+', '', heading)
+        # 保留原标题格式（如"一、项目概述"）
         sec_body = lines[1].strip() if len(lines) > 1 else ""
 
         # 渲染章节标题
