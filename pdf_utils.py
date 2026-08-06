@@ -328,10 +328,28 @@ def generate_generic_pdf(title: str, content: str) -> bytes:
     return _build_generic(title, elements)
 
 
-def _html_to_pdf(html: str) -> bytes:
-    """使用 WeasyPrint 将 HTML 转为 PDF，CSS 原生处理 CJK 禁则排版。"""
-    from weasyprint import HTML
-    return HTML(string=html).write_pdf()
+_WEASYPRINT_OK = None
+
+
+def _html_to_pdf(html: str, fallback_title: str = "", fallback_content: str = "") -> bytes:
+    """使用 WeasyPrint 将 HTML 转为 PDF；不可用时退回 reportlab 通用格式。"""
+    global _WEASYPRINT_OK
+    if _WEASYPRINT_OK is None:
+        try:
+            from weasyprint import HTML as _WH
+            _WH(string="<p>test</p>").write_pdf()
+            _WEASYPRINT_OK = True
+        except Exception:
+            _WEASYPRINT_OK = False
+
+    if _WEASYPRINT_OK:
+        from weasyprint import HTML as _WH2
+        return _WH2(string=html).write_pdf()
+
+    # 回退到 reportlab
+    import traceback
+    print(f"[pdf_utils] WeasyPrint 不可用，回退 reportlab：{traceback.format_exc()[-200:]}")
+    return generate_generic_pdf(fallback_title, fallback_content)
 
 
 def generate_proposal(
@@ -415,7 +433,7 @@ def generate_proposal(
 </div>
 </body></html>"""
 
-    return _html_to_pdf(html)
+    return _html_to_pdf(html, fallback_title=title, fallback_content=content)
 
 
 # ============================================================
