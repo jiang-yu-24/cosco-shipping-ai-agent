@@ -133,67 +133,92 @@ def get_current_time() -> str:
 
 def query_shipping_schedule(route: str) -> str:
     """
-    模拟查询散货船期信息。
+    从100+条散货船期数据集中检索匹配的船期信息。
+
+    支持按航线、港口、货种、船名、区域等关键词灵活检索，
+    不再依赖硬编码数据。检索逻辑：关键词命中越多，排名越靠前。
 
     参数:
-        route: str - 航运路线描述，例如 "西澳-青岛"、"巴西-天津"、"印尼-湛江"
-
-    返回:
-        str - 虚构但业务逻辑通顺的船期信息（含船名、预计离港/到港时间、货种等）
+        route: str - 查询描述，如"西澳-青岛"、"天津铁矿石"、"巴西大豆"、"致远号"
     """
-    # --- 模拟船期数据库 ---
-    # 在实际项目中，这里应调用中远海运数据中台 API 或内部调度系统
-    mock_schedule_db = {
-        "西澳-青岛": {
-            "vessel": "COSCO SHIPPING BULK - 致远号 (ZHI YUAN)",
-            "cargo": "铁矿石 (Iron Ore)",
-            "departure": "2026-08-15 (澳大利亚 黑德兰港)",
-            "arrival": "2026-08-28 (中国 青岛前湾港)",
-            "duration": "约13天",
-            "status": "在港待装 (Waiting for Loading)",
-            "remark": "受NW季风影响，预计有0.5天延迟",
-        },
-        "巴西-天津": {
-            "vessel": "COSCO SHIPPING BULK - 远望号 (YUAN WANG)",
-            "cargo": "大豆 (Soybean)",
-            "departure": "2026-08-05 (巴西 桑托斯港)",
-            "arrival": "2026-09-20 (中国 天津港)",
-            "duration": "约46天",
-            "status": "航行中 (Underway)",
-            "remark": "经好望角航线，当前航速12.5节",
-        },
-        "印尼-湛江": {
-            "vessel": "COSCO SHIPPING BULK - 远航号 (YUAN HANG)",
-            "cargo": "动力煤 (Thermal Coal)",
-            "departure": "2026-08-10 (印度尼西亚 塔巴尼奥港)",
-            "arrival": "2026-08-18 (中国 湛江港)",
-            "duration": "约8天",
-            "status": "装货中 (Loading)",
-            "remark": "天气良好，预计准时发运",
-        },
-    }
+    import json
+    import os
 
-    # 尝试精确匹配
-    if route in mock_schedule_db:
-        info = mock_schedule_db[route]
+    # 加载船期数据集
+    data_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "data", "shipping_schedules.json")
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            schedules = json.load(f)
+    except Exception:
+        return "⚠️ 船期数据加载失败，请联系管理员。"
+
+    if not route.strip():
+        return "⚠️ 请输入查询条件，如航线、港口、货种或船名。"
+
+    # 关键词分词（按空格和常见分隔符拆分）
+    keywords = route.strip().lower().replace("、", " ").replace("，", " ").replace(",", " ").split()
+    if not keywords:
+        keywords = [route.strip().lower()]
+
+    # 对每条船期计算匹配分
+    scored = []
+    for s in schedules:
+        text = f"{s['route']} {s['port_from']} {s['port_to']} {s['region']} {s['cargo']} {s['vessel']} {s['status']}".lower()
+        score = 0
+        for kw in keywords:
+            if kw in text:
+                score += 1
+            # 部分匹配加分
+            if len(kw) >= 2:
+                for i in range(len(kw) - 1):
+                    if kw[i:i+2] in text:
+                        score += 0.25
+        if score > 0:
+            scored.append((score, s))
+
+    if not scored:
+        # 无匹配时返回提示
         return (
-            f"📍 航线：{route}\n"
-            f"🚢 船名：{info['vessel']}\n"
-            f"📦 货种：{info['cargo']}\n"
-            f"⚓ 预计离港：{info['departure']}\n"
-            f"🏁 预计到港：{info['arrival']}\n"
-            f"⏱️ 预计航程：{info['duration']}\n"
-            f"📡 船舶状态：{info['status']}\n"
-            f"📝 备注：{info['remark']}"
+            f"⚠️ 未找到与「{route}」匹配的船期数据。\n"
+            f"当前数据库收录 {len(schedules)} 条船期，覆盖以下区域：\n"
+            f"澳大利亚-中国、南美-中国、东南亚-中国、北美-中国、"
+            f"西非-中国、南非-中国、远东-中国、印度-中国\n"
+            f"支持的货种：铁矿石、煤炭/焦煤/动力煤、大豆/玉米/小麦、铝土矿、锰矿等\n"
+            f"请尝试使用港口名、城市名、货种名或区域名重新查询。"
         )
 
-    # 未匹配到航线时的兜底返回
-    supported_routes = "、".join(mock_schedule_db.keys())
-    return (
-        f"⚠️ 暂未收录航线「{route}」的船期数据。\n"
-        f"当前支持的航线：{supported_routes}\n"
-        f"（实际项目中此接口将对接实时调度数据库）"
-    )
+    # 按匹配分降序，取前5条
+    scored.sort(key=lambda x: x[0], reverse=True)
+    top = scored[:5]
+
+    if len(top) == 1:
+        s = top[0][1]
+        return (
+            f"📍 航线：{s['route']}\n"
+            f"🚢 船名：{s['vessel']}\n"
+            f"📦 货种：{s['cargo']}\n"
+            f"⚓ 装货港：{s['port_from']}\n"
+            f"🏁 卸货港：{s['port_to']}\n"
+            f"📅 预计离港：{s['departure']}\n"
+            f"📅 预计到港：{s['arrival']}\n"
+            f"⏱️ 航程：{s['duration']}\n"
+            f"📡 状态：{s['status']}"
+            + (f"\n📝 备注：{s['remark']}" if s['remark'] else "")
+        )
+
+    # 多条匹配
+    result = f"🔍 「{route}」匹配到 {len(top)} 条船期（共 {len(scored)} 条相关）：\n\n"
+    for i, (score, s) in enumerate(top, 1):
+        result += (
+            f"【{i}】{s['route']} | {s['vessel']} | {s['cargo']}\n"
+            f"    {s['port_from']} → {s['port_to']} | {s['departure']} → {s['arrival']} | {s['status']}\n\n"
+        )
+    if len(scored) > 5:
+        result += f"（还有 {len(scored) - 5} 条匹配未展示，请缩小查询范围）"
+    else:
+        result += "如需查看某条详情，请提供更具体的查询条件。"
+    return result
 
 
 def search_file_content(keyword: str) -> str:
@@ -355,16 +380,17 @@ TOOL_DESCRIPTIONS: List[Dict[str, Any]] = [
         "function": {
             "name": "query_shipping_schedule",
             "description": (
-                "查询中远海运散货船期信息。"
-                "当用户询问特定航线的船期、船名、到港时间等信息时调用此工具。"
-                "支持的航线包括：西澳-青岛（铁矿石）、巴西-天津（大豆）、印尼-湛江（动力煤）。"
+                "查询散货船期数据库（100+条记录）。"
+                "支持按航线、港口名、城市名、货种、船名、区域等任意关键词检索。"
+                "覆盖澳大利亚、南美、东南亚、北美、西非、南非、远东至中国航线。"
+                "货种含铁矿石、煤炭、大豆、铝土矿、锰矿等。"
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "route": {
                         "type": "string",
-                        "description": "航运路线，例如 '西澳-青岛'、'巴西-天津'、'印尼-湛江'",
+                        "description": "查询关键词，如'西澳-青岛'、'天津铁矿石'、'巴西大豆'、'致远号'、'动力煤'等",
                     },
                 },
                 "required": ["route"],
