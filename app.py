@@ -112,14 +112,46 @@ st.caption("中远海运散货运输智能助理 · 船期查询 · 文件分析
 # ============================================================
 # 第1区：对话历史 / 欢迎框（上方）
 # ============================================================
+# 邮件暂存区（始终显示，不受历史影响）
+if st.session_state.email_vault:
+    for i, (subject, body, recipient) in enumerate(st.session_state.email_vault):
+        with st.container(border=True):
+            col1, col2 = st.columns([10, 1])
+            with col1:
+                if recipient:
+                    st.caption(f"收件人：{recipient}")
+            with col2:
+                if st.button("✕", key=f"rm_email_{i}"):
+                    st.session_state.email_vault.pop(i)
+                    st.rerun()
+            st.code(subject, language="")
+            st.code(body, language="")
+
+# PDF 生成下载按钮
+try:
+    from pdf_utils import get_pdfs
+    pdfs = get_pdfs()
+except ImportError:
+    pdfs = []
+for j, (pdf_data, pdf_name) in enumerate(pdfs):
+    st.download_button(
+        label=f"📥 下载 {pdf_name}",
+        data=pdf_data, file_name=pdf_name,
+        mime="application/pdf", type="primary",
+        key=f"pdf_dl_{j}_{st.session_state.widget_key}",
+    )
+    if not any(f["name"] == pdf_name and f["type"] == "pdf" for f in st.session_state.file_vault):
+        st.session_state.file_vault.append({
+            "name": pdf_name, "data": pdf_data, "type": "pdf",
+        })
+
+# 对话历史
 if st.session_state.history:
-    # 从旧到新展示所有对话
     for i, h in enumerate(reversed(st.session_state.history)):
         with st.chat_message("user"):
             st.markdown(h["query"])
         with st.chat_message("assistant"):
-            st.markdown(h["response"])
-            # 如果有关联文件，提供下载
+            st.code(h["response"], language="")
             if h.get("file_data"):
                 st.download_button(
                     label=f"📥 下载 {h['file_name']}",
@@ -128,41 +160,6 @@ if st.session_state.history:
                     mime="application/octet-stream",
                     key=f"hist_dl_{i}",
                 )
-
-    # PDF 生成下载按钮（支持多份）
-    try:
-        from pdf_utils import get_pdfs
-        pdfs = get_pdfs()
-    except ImportError:
-        pdfs = []
-    for j, (pdf_data, pdf_name) in enumerate(pdfs):
-        st.download_button(
-            label=f"📥 下载 {pdf_name}",
-            data=pdf_data, file_name=pdf_name,
-            mime="application/pdf", type="primary",
-            key=f"pdf_dl_{j}_{st.session_state.widget_key}",
-        )
-        if not any(f["name"] == pdf_name and f["type"] == "pdf" for f in st.session_state.file_vault):
-            st.session_state.file_vault.append({
-                "name": pdf_name, "data": pdf_data, "type": "pdf",
-            })
-
-    # 邮件暂存区（持久显示，不清除）
-    if st.session_state.email_vault:
-        for i, (subject, body, recipient) in enumerate(st.session_state.email_vault):
-            with st.container(border=True):
-                col1, col2 = st.columns([10, 1])
-                with col1:
-                    if recipient:
-                        st.caption(f"收件人：{recipient}")
-                with col2:
-                    if st.button("✕", key=f"rm_email_{i}"):
-                        st.session_state.email_vault.pop(i)
-                        st.rerun()
-                st.caption("主题")
-                st.code(subject, language="")
-                st.caption("正文")
-                st.code(body, language="")
 else:
     st.info(
         "欢迎使用远航助手！请在下方框内输入指令。\n\n"
