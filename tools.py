@@ -356,6 +356,47 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
         return f"❌ PDF 生成失败：{str(e)}"
 
 
+def compose_email(subject: str, body: str, recipient: str = "") -> str:
+    """
+    编写邮件，生成可复制主题和正文的文本框。
+
+    当用户要求「写一封邮件」「起草邮件」「帮我回复」等场景时调用此工具。
+    生成后页面将显示可点击复制的主题和正文输入框。
+
+    参数:
+        subject: 邮件主题（不含"主题："前缀）
+        body: 邮件正文（不含"正文："前缀，可含换行符）
+        recipient: 收件人邮箱或名称（可选）
+    """
+    # 存储到模块变量供 app.py 渲染
+    global _email_subject, _email_body, _email_recipient
+    _email_subject = subject
+    _email_body = body
+    _email_recipient = recipient
+
+    return (
+        f"✅ 邮件已编写完成。\n"
+        + (f"收件人：{recipient}\n" if recipient else "")
+        + f"主题和正文显示在结果区域，可直接点击复制。"
+    )
+
+
+# 邮件暂存变量（供 app.py 读取）
+_email_subject: str = ""
+_email_body: str = ""
+_email_recipient: str = ""
+
+
+def get_email() -> tuple:
+    """获取已编写的邮件信息，读取后清空。"""
+    global _email_subject, _email_body, _email_recipient
+    result = (_email_subject, _email_body, _email_recipient)
+    _email_subject = ""
+    _email_body = ""
+    _email_recipient = ""
+    return result
+
+
 # ============================================================
 # 工具注册表 — 供 agent_core.py 和 app.py 使用
 # ============================================================
@@ -482,6 +523,34 @@ TOOL_DESCRIPTIONS: List[Dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "compose_email",
+            "description": (
+                "编写邮件。生成可点击复制的主题和正文。"
+                "当用户要求「写邮件」「起草邮件」「帮我回复客户」等场景时调用。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "subject": {
+                        "type": "string",
+                        "description": "邮件主题（不含'主题：'前缀）",
+                    },
+                    "body": {
+                        "type": "string",
+                        "description": "邮件正文（不含'正文：'前缀，可含换行）",
+                    },
+                    "recipient": {
+                        "type": "string",
+                        "description": "收件人邮箱或名称（可选）",
+                    },
+                },
+                "required": ["subject", "body"],
+            },
+        },
+    },
 ]
 
 # TOOL_MAPPING: 工具名 -> 实际Python函数的映射字典
@@ -491,6 +560,7 @@ TOOL_MAPPING: Dict[str, Any] = {
     "query_shipping_schedule": query_shipping_schedule,
     "search_file_content": search_file_content,
     "generate_document": generate_document,
+    "compose_email": compose_email,
 }
 
 # TOOL_NAMES: 工具名称列表，供 app.py 侧边栏展示
@@ -501,4 +571,5 @@ TOOL_NAMES: List[str] = [t["function"]["name"] for t in TOOL_DESCRIPTIONS]
 TOOL_DISPLAY_NAMES: Dict[str, str] = {
     "search_file_content": "读取文件内容",
     "generate_document": "生成PDF文件",
+    "compose_email": "编写邮件",
 }
