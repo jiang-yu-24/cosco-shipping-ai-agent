@@ -116,7 +116,20 @@ if st.session_state.history:
         with st.chat_message("user"):
             st.code(h["query"], language="")
         with st.chat_message("assistant"):
-            st.code(h["response"], language="")
+            if h.get("_loading"):
+                st.markdown(
+                    '<div style="'
+                    'background: linear-gradient(135deg, #e8f0fe 0%, #d4e4fc 100%);'
+                    'border: 1px solid #a8c8f0; border-radius: 10px;'
+                    'padding: 14px 20px; font-size: 15px; color: #2c5aa0;'
+                    '">'
+                    '正在分析中<span class="loading-dots">'
+                    '<span>.</span><span>.</span><span>.</span>'
+                    '</span></div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.code(h["response"], language="")
             if h.get("file_data"):
                 st.download_button(
                     label=f"📥 下载 {h['file_name']}",
@@ -183,45 +196,74 @@ with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=Tr
     submit = st.form_submit_button("↑ 发送", use_container_width=True, type="primary")
 
 # ============================================================
-# 第3区：查询处理（在表单之后，直接处理）
+# 第3区：查询处理
 # ============================================================
+# 阶段1：用户提交 → 先展示提问+加载动画，标记待处理
 if submit and user_query.strip():
-    status_placeholder.markdown(
-        '<div style="'
-        'background: linear-gradient(135deg, #e8f0fe 0%, #d4e4fc 100%);'
-        'border: 1px solid #a8c8f0;'
-        'border-radius: 10px;'
-        'padding: 14px 20px;'
-        'font-size: 15px;'
-        'color: #2c5aa0;'
-        '">'
-        '正在分析中，请稍候'
-        '<span class="loading-dots">'
-        '<span>.</span><span>.</span><span>.</span>'
-        '</span>'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    st.session_state._pending_query = user_query.strip()
+    st.session_state._pending_file = uploaded_file.getvalue() if uploaded_file else None
+    st.session_state._pending_filename = uploaded_file.name if uploaded_file else None
+    st.rerun()
 
+# 阶段2：处理待处理查询
+if st.session_state.get("_pending_query"):
+    query_text = st.session_state._pending_query
+    file_bytes = st.session_state.get("_pending_file")
+    file_name = st.session_state.get("_pending_filename")
+    del st.session_state._pending_query
+    st.session_state._pending_file = None
+    st.session_state._pending_filename = None
+
+    # 先插入用户提问（占位，让用户立刻看到）
+    st.session_state.history.insert(0, {
+        "query": query_text,
+        "response": "正在分析中...",
+        "file_name": None,
+        "file_data": None,
+        "emails": [],
+        "_loading": True,
+    })
+    st.session_state.widget_key += 1
+    st.rerun()
+
+# 阶段3：处理标记为 _loading 的条目
+loading_entry = None
+for h in st.session_state.history:
+    if h.get("_loading"):
+        loading_entry = h
+        break
+
+if loading_entry:
     try:
-        if uploaded_file is not None:
-            file_text = parse_file_content(uploaded_file.getvalue(), uploaded_file.name)
-            set_uploaded_file(file_text, uploaded_file.name)
-            st.session_state.file_loaded = True
+        query_text = loading_entry["query"]
+
+        # 处理上传文件
+        if file_bytes is not None or (hasattr(st, 'session_state') and False):
+            pass  # 文件已在阶段1获取
+        # 重新获取文件（如果有）
+        if loading_entry.get("_pending_file"):
+            fb = loading_entry["_pending_file"]
+            fn = loading_entry.get("_pending_filename", "")
+            if fb:
+                file_text = parse_file_content(fb, fn)
+                set_uploaded_file(file_text, fn)
+                st.session_state.file_loaded = True
 
         history_for_agent = []
         for h in st.session_state.history:
+            if h.get("_loading"):
+                continue
             history_for_agent.append({"role": "user", "content": h["query"]})
             history_for_agent.append({"role": "assistant", "content": h["response"]})
 
-        query = user_query.strip()
+        query = query_text
         if st.session_state.file_loaded:
-            file_content, file_name = get_uploaded_file_info()
+            file_content, fname = get_uploaded_file_info()
             if file_content:
                 query = (
-                    f"【用户已上传文件「{file_name}」，文件内容如下】\n\n"
+                    f"【用户已上传文件「{fname}」，文件内容如下】\n\n"
                     f"{file_content}\n\n"
-                    f"【文件内容结束。用户的问题是】\n{user_query.strip()}"
+                    f"【文件内容结束。用户的问题是】\n{query_text}"
                 )
 
         response = run_agent(
@@ -229,40 +271,34 @@ if submit and user_query.strip():
             chat_history=history_for_agent if history_for_agent else None,
         )
 
-        file_data = None
-        file_name = None
-        if uploaded_file is not None:
-            file_data = uploaded_file.getvalue()
-            file_name = uploaded_file.name
-            # 加入文件暂存区
-            if not any(f["name"] == file_name and f["type"] == "upload" for f in st.session_state.file_vault):
-                st.session_state.file_vault.append({
-                    "name": file_name, "data": file_data, "type": "upload",
-                })
-
-        # 拉取本轮的邮件
+        # 拉取邮件
         entry_emails = []
         try:
             entry_emails = get_emails()
         except Exception:
             pass
 
-        st.session_state.history.insert(0, {
-            "query": user_query.strip(),
-            "response": response,
-            "file_name": file_name,
-            "file_data": file_data,
-            "emails": entry_emails,
-        })
+        # 更新占位条目
+        loading_entry["response"] = response
+        loading_entry["emails"] = entry_emails
+        loading_entry["_loading"] = False
+        if file_bytes:
+            loading_entry["file_name"] = file_name
+            loading_entry["file_data"] = file_bytes
+            if not any(f["name"] == file_name and f["type"] == "upload" for f in st.session_state.file_vault):
+                st.session_state.file_vault.append({
+                    "name": file_name, "data": file_bytes, "type": "upload",
+                })
+
         set_uploaded_file("", "")
         st.session_state.file_loaded = False
         st.session_state.last_file_key = None
-        st.session_state.widget_key += 1
-        status_placeholder.empty()
         st.rerun()
 
     except Exception:
-        status_placeholder.error("❌ 系统繁忙，请稍后重试。")
+        loading_entry["response"] = "❌ 系统繁忙，请稍后重试。"
+        loading_entry["_loading"] = False
+        st.rerun()
 
 elif submit and not user_query.strip():
     status_placeholder.warning("请输入查询内容")
