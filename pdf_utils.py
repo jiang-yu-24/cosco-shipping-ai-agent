@@ -47,16 +47,14 @@ _CJK_CANDIDATES = [
 def _init_fonts():
     """
     注册字体策略：
-    - CJK: 使用项目自带或系统中文字体，覆盖中、日、韩及基础拉丁字符
-    - 拉丁加粗回退到 Helvetica-Bold（reportlab 内置，无需外部文件）
-    - CJK 加粗使用同一字体（reportlab 不支持合成粗体，改用字号/颜色区分）
+    - Helvetica 作为基准字体（拉丁/数字完美支持，reportlab 内置）
+    - CJK 字体仅用于中文渲染，通过 XML <font> 标签按需混排
     """
     global _DONE
     if _DONE:
         return
     _DONE = True
 
-    # 1. 注册 CJK 字体（覆盖中文 + 基础拉丁）
     cjk_path = None
     for path in _CJK_CANDIDATES:
         if os.path.isfile(path):
@@ -66,63 +64,85 @@ def _init_fonts():
     if cjk_path:
         pdfmetrics.registerFont(TTFont("CJK", cjk_path))
 
-    # 2. Helvetica 作为拉丁粗体回退（reportlab 内置，无需注册）
-    # Helvetica, Helvetica-Bold, Courier 均为 reportlab 内置字体
-
 
 # ============================================================
-# 样式工厂
+# 文本混排：拉丁用 Helvetica，中文用 CJK
 # ============================================================
+
+def _needs_cjk(text: str) -> bool:
+    """判断文本是否包含 CJK 字符。"""
+    for ch in text:
+        cp = ord(ch)
+        if (0x4E00 <= cp <= 0x9FFF or   # CJK 统一汉字
+            0x3400 <= cp <= 0x4DBF or   # CJK 扩展 A
+            0x20000 <= cp <= 0x2A6DF or # CJK 扩展 B
+            0xF900 <= cp <= 0xFAFF or   # CJK 兼容汉字
+            0x3000 <= cp <= 0x303F or   # CJK 标点
+            0xFF00 <= cp <= 0xFFEF or   # 全角字符
+            0x2F800 <= cp <= 0x2FA1F):  # CJK 兼容补充
+            return True
+    return False
+
+
+def _wrap_cjk(text: str) -> str:
+    """
+    检测文本是否含中文，如含则用 <font face="CJK"> 包裹整段。
+    这样做比逐字符拆分更简单，且 reportlab 对同一段落内单一字体处理更好。
+
+    不含中文的文本（如纯数字、英文）不做包裹，直接用 Helvetica。
+    """
+    cjk_ok = "CJK" in pdfmetrics._fonts
+    if not cjk_ok:
+        return text
+    if _needs_cjk(text):
+        return f'<font face="CJK">{text}</font>'
+    return text
+
 
 def _make_styles():
-    """根据字体可用情况创建段落样式字典。"""
+    """创建段落样式字典。基准字体 Helvetica，CJK 通过 XML 注入。"""
     _init_fonts()
-
-    # CJK 可用时优先用 CJK（含拉丁），粗体回退到 Helvetica-Bold
-    cjk_ok = "CJK" in pdfmetrics._fonts
-
-    body_font = "CJK" if cjk_ok else "Helvetica"
-    bold_font = "Helvetica-Bold"  # 拉丁加粗始终用 Helvetica-Bold（内置）
-    meta_font = "Helvetica"       # 元数据（文号、日期等）用 Helvetica
 
     return {
         "title": ParagraphStyle(
-            "s_title", fontName=body_font, fontSize=18,
+            "s_title", fontName="Helvetica", fontSize=18,
             alignment=TA_CENTER, spaceAfter=6, leading=28,
         ),
         "doc_no": ParagraphStyle(
-            "s_docno", fontName=body_font, fontSize=10,
+            "s_docno", fontName="Helvetica", fontSize=10,
             alignment=TA_CENTER, textColor=HexColor("#888888"), spaceAfter=4,
         ),
         "recipient": ParagraphStyle(
-            "s_recip", fontName=body_font, fontSize=11,
+            "s_recip", fontName="Helvetica", fontSize=11,
             alignment=TA_LEFT, spaceAfter=8, leading=18,
         ),
         "body": ParagraphStyle(
-            "s_body", fontName=body_font, fontSize=11,
+            "s_body", fontName="Helvetica", fontSize=11,
             alignment=TA_LEFT, spaceAfter=6, leading=22,
             firstLineIndent=22,
         ),
         "signature": ParagraphStyle(
-            "s_sign", fontName=body_font, fontSize=11,
+            "s_sign", fontName="Helvetica", fontSize=11,
             alignment=TA_RIGHT, spaceAfter=4, leading=18,
         ),
         "meta": ParagraphStyle(
-            "s_meta", fontName=meta_font, fontSize=10,
+            "s_meta", fontName="Helvetica", fontSize=10,
             alignment=TA_RIGHT, textColor=HexColor("#888888"),
         ),
         "cell": ParagraphStyle(
-            "s_cell", fontName=body_font, fontSize=10, leading=16,
+            "s_cell", fontName="Helvetica", fontSize=10, leading=16,
         ),
         "cell_header": ParagraphStyle(
-            "s_chdr", fontName=bold_font, fontSize=10, leading=16,
+            "s_chdr", fontName="Helvetica-Bold", fontSize=10, leading=16,
         ),
     }
 
 
 def _p(text: str, styles: dict, key: str = "body") -> Paragraph:
-    """创建段落，自动将换行符转为 <br/>。"""
-    return Paragraph(text.replace("\n", "<br/>"), styles[key])
+    """创建段落：自动 <br/> 换行 + CJK 字体混排。"""
+    text = text.replace("\n", "<br/>")
+    text = _wrap_cjk(text)
+    return Paragraph(text, styles[key])
 
 
 def _table(rows: list, col_widths: list, styles: dict) -> Table:
