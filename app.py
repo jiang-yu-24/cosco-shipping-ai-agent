@@ -136,8 +136,10 @@ if st.session_state.history:
             st.caption("邮件已编写，点击文本框可复制内容")
             if email_recipient:
                 st.caption(f"收件人：{email_recipient}")
-            st.text_input("_subject", value=email_subject, label_visibility="collapsed", key=f"email_subj_{st.session_state.widget_key}")
-            st.text_area("_body", value=email_body, label_visibility="collapsed", height=200, key=f"email_body_{st.session_state.widget_key}")
+            st.caption("主题")
+            st.code(email_subject, language="")
+            st.caption("正文")
+            st.code(email_body, language="")
 else:
     st.info(
         "欢迎使用远航助手！请在下方框内输入指令。\n\n"
