@@ -183,8 +183,27 @@ def _make_styles():
     }
 
 
+# CJK 禁则字符——不能出现在行首
+_KINSOKU_CHARS = set("，。、》」』】！？％…—～：）］”'″′〉,.;:!?%)}]'\"")
+
+
+def _fix_kinsoku(text: str) -> str:
+    """
+    在会出现在行首的 CJK 标点前插入 ZWJ (U+200D)。
+    ZWJ 是零宽度不可见字符，阻止 reportlab 在它之后断行，
+    从而防止标点落在行首。不影响字符间距。
+    """
+    result = []
+    for i, ch in enumerate(text):
+        if ch in _KINSOKU_CHARS and i > 0 and text[i - 1] not in (" ", "\n", "‍"):
+            result.append("‍")
+        result.append(ch)
+    return "".join(result)
+
+
 def _p(text: str, styles: dict, key: str = "body") -> Paragraph:
-    """创建段落：<br/> 换行 + CJK 字体混排。"""
+    """创建段落：禁则处理 + <br/> 换行 + CJK 字体混排。"""
+    text = _fix_kinsoku(text)
     text = text.replace("\n", "<br/>")
     text = _wrap_cjk(text)
     return Paragraph(text, styles[key])
@@ -195,7 +214,7 @@ def _table(rows: list, col_widths: list, styles: dict) -> Table:
     formatted = []
     for i, row in enumerate(rows):
         sty = styles["cell_header"] if i == 0 else styles["cell"]
-        formatted.append([Paragraph(_wrap_cjk(str(c)).replace("\n", "<br/>"), sty) for c in row])
+        formatted.append([Paragraph(_wrap_cjk(_fix_kinsoku(str(c))).replace("\n", "<br/>"), sty) for c in row])
 
     t = Table(formatted, colWidths=col_widths)
     t.setStyle(TableStyle([
