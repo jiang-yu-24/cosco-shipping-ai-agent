@@ -316,14 +316,14 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
                 consignor=consignor or "待填写",
                 consignee=consignee or "待填写",
             )
-            filename = f"船期确认函_{route or '通用'}_{ts}.pdf"
+            filename = f"{title or '船期确认函'}_{ts}.pdf"
 
         elif doc_type == "report":
             pdf_bytes = generate_shipping_report(
                 title=title or "航运分析报告",
                 content=content or "（无正文内容）",
             )
-            filename = f"航运报告_{ts}.pdf"
+            filename = f"{title or '航运报告'}_{ts}.pdf"
 
         elif doc_type == "official":
             pdf_bytes = generate_official_document(
@@ -347,7 +347,7 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
                 department=consignor or "",  # 复用 consignor 参数传递申报单位
                 content=content or "（无正文内容）",
             )
-            filename = f"项目方案_{title or '未命名'}_{ts}.pdf"
+            filename = f"{title or '项目方案'}_{ts}.pdf"
 
         else:
             return (
