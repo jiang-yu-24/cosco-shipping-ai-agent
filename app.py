@@ -114,9 +114,9 @@ if st.session_state.history:
     # 从旧到新展示所有对话
     for i, h in enumerate(reversed(st.session_state.history)):
         with st.chat_message("user"):
-            st.code(h["query"], language=None)
+            st.markdown(h["query"])
         with st.chat_message("assistant"):
-            st.code(h["response"], language=None)
+            st.markdown(h["response"])
             # 如果有关联文件，提供下载
             if h.get("file_data"):
                 st.download_button(
