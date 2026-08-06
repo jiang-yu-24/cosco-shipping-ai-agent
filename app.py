@@ -52,7 +52,8 @@ if "history" not in st.session_state:
     st.session_state.last_file_key = None
     st.session_state.widget_key = 0
     st.session_state.processing = False
-    st.session_state.file_vault = []  # [{name, data, type: "upload"|"pdf"}]
+if "file_vault" not in st.session_state:
+    st.session_state.file_vault = []
 
 # ============================================================
 # 左侧边栏
