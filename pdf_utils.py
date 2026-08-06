@@ -131,23 +131,8 @@ def _make_styles():
     }
 
 
-# CJK 禁则——用正则单次替换，避免逐字符遍历
-_KINSOKU_PATTERN = _re.compile(
-    r'([^\s\n ‍])([，。、》」』】！？％…—～：）］"'+"'"+r'″′〉,.;:!?%)}]'+"'"+r'"])'
-)
-
-
-def _fix_kinsoku(text: str) -> str:
-    """
-    用 ‍ (ZWJ) 连接 CJK 标点与前一字，防止标点断到行首。
-    正则单次替换，O(n) 复杂度，对长文本无性能影响。
-    """
-    return _KINSOKU_PATTERN.sub(r'\1‍\2', text)
-
-
 def _p(text: str, styles: dict, key: str = "body") -> Paragraph:
-    """创建段落：禁则处理 + <br/> 换行 + CJK 字体混排。"""
-    text = _fix_kinsoku(text)
+    """创建段落：<br/> 换行 + CJK 字体混排。"""
     text = text.replace("\n", "<br/>")
     text = _wrap_cjk(text)
     return Paragraph(text, styles[key])
@@ -158,7 +143,7 @@ def _table(rows: list, col_widths: list, styles: dict) -> Table:
     formatted = []
     for i, row in enumerate(rows):
         sty = styles["cell_header"] if i == 0 else styles["cell"]
-        formatted.append([Paragraph(_wrap_cjk(_fix_kinsoku(str(c))).replace("\n", "<br/>"), sty) for c in row])
+        formatted.append([Paragraph(_wrap_cjk(str(c)).replace("\n", "<br/>"), sty) for c in row])
 
     t = Table(formatted, colWidths=col_widths)
     t.setStyle(TableStyle([
@@ -343,6 +328,12 @@ def generate_generic_pdf(title: str, content: str) -> bytes:
     return _build_generic(title, elements)
 
 
+def _html_to_pdf(html: str) -> bytes:
+    """使用 WeasyPrint 将 HTML 转为 PDF，CSS 原生处理 CJK 禁则排版。"""
+    from weasyprint import HTML
+    return HTML(string=html).write_pdf()
+
+
 def generate_proposal(
     title: str,
     project_name: str = "",
@@ -350,127 +341,81 @@ def generate_proposal(
     content: str = "",
 ) -> bytes:
     """
-    生成央企数字化项目方案 PDF。
-
-    参数:
-        title: 方案标题
-        project_name: 项目名称
-        department: 申报单位
-        content: 方案正文（按模板章节组织，以 # 号标注章节标题）
+    生成央企数字化项目方案 PDF（WeasyPrint 引擎，CSS CJK 排版）。
     """
-    _init_fonts()
-    styles = _make_styles()
-
-    # 封面样式
-    cover_title = ParagraphStyle(
-        "cover_title", fontName="Helvetica", fontSize=24,
-        alignment=TA_CENTER, leading=36, spaceAfter=20,
-    )
-    cover_sub = ParagraphStyle(
-        "cover_sub", fontName="Helvetica", fontSize=14,
-        alignment=TA_CENTER, leading=22, textColor=HexColor("#555555"),
-    )
-    # 章节标题样式
-    section_h = ParagraphStyle(
-        "section_h", fontName="Helvetica", fontSize=14,
-        alignment=TA_LEFT, leading=22, spaceBefore=10, spaceAfter=6,
-    )
-    body = styles["body"]
-
-    buf = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buf, pagesize=A4,
-        topMargin=22 * mm, bottomMargin=18 * mm,
-        leftMargin=25 * mm, rightMargin=25 * mm,
-    )
-
-    story = []
-
-    # --- 封面 ---
-    story.append(Spacer(1, 40 * mm))
-    story.append(Paragraph(_wrap_cjk("数字化项目方案"), cover_title))
-    story.append(Spacer(1, 10 * mm))
-    story.append(Paragraph(_wrap_cjk(title), cover_title))
-    story.append(Spacer(1, 15 * mm))
-    if project_name:
-        story.append(Paragraph(_wrap_cjk(f"项目名称：{project_name}"), cover_sub))
-    if department:
-        story.append(Paragraph(_wrap_cjk(f"申报单位：{department}"), cover_sub))
     now = datetime.now(_CST)
-    story.append(Paragraph(_wrap_cjk(f"编制日期：{now.strftime('%Y年%m月%d日')}"), cover_sub))
-    story.append(Spacer(1, 10 * mm))
+    date_str = now.strftime("%Y年%m月%d日")
 
-    # 封面分隔线
-    story.append(_red_line(1.0, 8))
-
-    # --- 正文：按章节解析（支持「一、」「二、」格式和「#」格式） ---
-    # 按中文序号标题分割：一、二、三、... 或 # 开头
-    sections = _re.split(r"\n(?=[一二三四五六七八九十]、|\d+、|# )", content.strip())
-    if len(sections) <= 1:
-        # 无章节分割，整个内容作为正文
-        sections = [content.strip()]
-
-    for sec in sections:
-        sec = sec.strip()
-        if not sec:
+    # 处理正文：管道表格 → HTML table，段落 → <p>
+    body_html = ""
+    for section in _re.split(r"\n(?=[一二三四五六七八九十]、)", content.strip()):
+        section = section.strip()
+        if not section:
             continue
-
-        # 提取章节标题和正文
-        lines = sec.split("\n", 1)
+        lines = section.split("\n", 1)
         heading = lines[0].strip()
-        # 清理标题前缀（# 或 中文序号）
-        heading = _re.sub(r'^[#\s]+', '', heading)
-        # 保留原标题格式（如"一、项目概述"）
         sec_body = lines[1].strip() if len(lines) > 1 else ""
 
-        # 渲染章节标题
-        story.append(Paragraph(_wrap_cjk(heading), section_h))
-        story.append(_red_line(0.3, 4))
+        body_html += f'<h2>{heading}</h2>\n'
 
-        # 渲染章节正文（按段落分割，连续 | 行自动合并为表格）
+        # 收集连续的表格行
         para_lines = sec_body.split("\n")
         i = 0
         while i < len(para_lines):
-            para = para_lines[i].strip()
-
-            # 跳过空行
-            if not para:
-                story.append(Spacer(1, 2 * mm))
+            line = para_lines[i].strip()
+            if not line:
                 i += 1
                 continue
-
-            # 检测表格行（包含 | 且至少2个分隔符）
-            if "|" in para and para.count("|") >= 2:
-                rows = []
+            if "|" in line and line.count("|") >= 2:
+                body_html += '<table>\n'
                 while i < len(para_lines) and "|" in para_lines[i] and para_lines[i].count("|") >= 2:
                     cells = [c.strip() for c in para_lines[i].strip().split("|")]
-                    # 去掉首尾可能的空串
-                    if cells and cells[0] == "":
-                        cells = cells[1:]
-                    if cells and cells[-1] == "":
-                        cells = cells[:-1]
+                    cells = [c for c in cells if c]  # 去空
                     if cells:
-                        rows.append(cells)
+                        tag = "th" if i == 0 else "td"
+                        body_html += "<tr>" + "".join(f"<{tag}>{c}</{tag}>" for c in cells) + "</tr>\n"
                     i += 1
-                if rows:
-                    col_w = [(doc.width - 50) / len(rows[0])] * len(rows[0])
-                    story.append(_table(rows, col_w, styles))
-                    story.append(Spacer(1, 3 * mm))
+                body_html += '</table>\n'
             else:
-                story.append(_p(para, styles, "body"))
+                body_html += f"<p>{line}</p>\n"
                 i += 1
 
-        story.append(Spacer(1, 4 * mm))
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8">
+<style>
+  @page {{ size: A4; margin: 2.5cm 2.5cm 2cm 2.5cm; }}
+  body {{ font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; font-size: 12pt; line-height: 1.8; color: #222; }}
+  .cover {{ text-align: center; padding-top: 6cm; page-break-after: always; }}
+  .cover h1 {{ font-size: 26pt; margin-bottom: 1cm; }}
+  .cover .sub {{ font-size: 14pt; color: #555; margin: 0.3cm 0; }}
+  .cover hr {{ border: none; border-top: 2px solid #B40000; width: 60%; margin: 1.5cm auto 0 auto; }}
+  h2 {{ font-size: 15pt; margin: 1.2cm 0 0.4cm 0; padding-bottom: 4px; border-bottom: 1px solid #B40000; }}
+  p {{ text-indent: 2em; margin: 0.3cm 0; line-break: strict; }}
+  table {{ border-collapse: collapse; width: 100%; margin: 0.4cm 0; }}
+  th, td {{ border: 1px solid #ccc; padding: 6px 10px; text-align: center; font-size: 11pt; }}
+  th {{ background: #eee; font-weight: bold; }}
+  .sign-page {{ padding-top: 4cm; page-break-before: always; }}
+  .sign-page p {{ text-indent: 0; margin: 0.8cm 0; }}
+</style></head>
+<body>
+<div class="cover">
+  <h1>数字化项目方案</h1>
+  <h1>{title}</h1>
+  <div class="sub">项目名称：{project_name or '（待填写）'}</div>
+  <div class="sub">申报单位：{department or '（待填写）'}</div>
+  <div class="sub">编制日期：{date_str}</div>
+  <hr>
+</div>
+{body_html}
+<div class="sign-page">
+  <h2>编制单位审核意见</h2>
+  <p>编制人：________________&emsp;审核人：________________&emsp;批准人：________________</p>
+  <p>日　期：________________&emsp;日　期：________________&emsp;日　期：________________</p>
+</div>
+</body></html>"""
 
-    # --- 尾页 ---
-    story.append(Spacer(1, 15 * mm))
-    story.append(_p("编制单位审核意见：", styles, "body"))
-    story.append(Spacer(1, 20 * mm))
-    story.append(_p(f"编制人：________    审核人：________    批准人：________", styles, "body"))
-    story.append(_p(f"日期：________    日期：________    日期：________", styles, "body"))
-
-    doc.build(story)
-    return buf.getvalue()
+    return _html_to_pdf(html)
 
 
 # ============================================================
