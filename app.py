@@ -54,6 +54,8 @@ if "history" not in st.session_state:
     st.session_state.processing = False
 if "file_vault" not in st.session_state:
     st.session_state.file_vault = []
+if "email_vault" not in st.session_state:
+    st.session_state.email_vault = []  # [{subject, body, recipient}, ...]
 
 # ============================================================
 # 左侧边栏
@@ -144,19 +146,22 @@ if st.session_state.history:
                 "name": pdf_name, "data": pdf_data, "type": "pdf",
             })
 
-    # 邮件编写输出（支持多封）
-    try:
-        emails = get_emails()
-    except Exception:
-        emails = []
-    for subject, body, recipient in emails:
-        with st.container(border=True):
-            if recipient:
-                st.caption(f"收件人：{recipient}")
-            st.caption("主题")
-            st.code(subject, language="")
-            st.caption("正文")
-            st.code(body, language="")
+    # 邮件暂存区（持久显示，不清除）
+    if st.session_state.email_vault:
+        for i, (subject, body, recipient) in enumerate(st.session_state.email_vault):
+            with st.container(border=True):
+                col1, col2 = st.columns([10, 1])
+                with col1:
+                    if recipient:
+                        st.caption(f"收件人：{recipient}")
+                with col2:
+                    if st.button("✕", key=f"rm_email_{i}"):
+                        st.session_state.email_vault.pop(i)
+                        st.rerun()
+                st.caption("主题")
+                st.code(subject, language="")
+                st.caption("正文")
+                st.code(body, language="")
 else:
     st.info(
         "欢迎使用远航助手！请在下方框内输入指令。\n\n"
@@ -253,6 +258,14 @@ if submit and user_query.strip():
             "file_name": file_name,
             "file_data": file_data,
         })
+        # 拉取新生成的邮件加入持久暂存区
+        try:
+            for email in get_emails():
+                if email not in st.session_state.email_vault:
+                    st.session_state.email_vault.append(email)
+        except Exception:
+            pass
+
         set_uploaded_file("", "")
         st.session_state.file_loaded = False
         st.session_state.last_file_key = None
