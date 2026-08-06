@@ -209,10 +209,8 @@ if submit and user_query.strip():
         st.session_state._pfn = None
     st.rerun()
 
-# 阶段2：_pq 存在 → 插入占位，rerun
+# 阶段2：_pq 存在 → 插入占位 + 清除 _pq，rerun 到阶段3
 if st.session_state.get("_pq"):
-    # 存到本地变量（后续阶段3用 session_state）
-    # 先插入占位条目
     st.session_state.history.insert(0, {
         "query": st.session_state._pq,
         "response": "__loading__",
@@ -220,6 +218,7 @@ if st.session_state.get("_pq"):
         "file_data": None,
         "emails": [],
     })
+    st.session_state._pq = None  # 关键：清除标记，防止死循环
     st.session_state.widget_key += 1
     st.rerun()
 
@@ -283,16 +282,14 @@ if loading_entry:
         set_uploaded_file("", "")
         st.session_state.file_loaded = False
         st.session_state.last_file_key = None
-        # 清除暂存
-        st.session_state._pq = None
         st.session_state._pf = None
         st.session_state._pfn = None
         st.rerun()
 
     except Exception:
         loading_entry["response"] = "❌ 系统繁忙，请稍后重试。"
-        st.session_state._pq = None
         st.session_state._pf = None
+        st.session_state._pfn = None
         st.rerun()
 
 elif submit and not user_query.strip():
