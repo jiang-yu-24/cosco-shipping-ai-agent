@@ -116,7 +116,7 @@ if st.session_state.history:
         with st.chat_message("user"):
             st.code(h["query"], language="")
         with st.chat_message("assistant"):
-            if h.get("_loading"):
+            if h.get("response") == "__loading__":
                 st.markdown(
                     '<div style="'
                     'background: linear-gradient(135deg, #e8f0fe 0%, #d4e4fc 100%);'
@@ -198,60 +198,53 @@ with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=Tr
 # ============================================================
 # 第3区：查询处理
 # ============================================================
-# 阶段1：用户提交 → 先展示提问+加载动画，标记待处理
+# 阶段1：提交 → 存待处理，rerun
 if submit and user_query.strip():
-    st.session_state._pending_query = user_query.strip()
-    st.session_state._pending_file = uploaded_file.getvalue() if uploaded_file else None
-    st.session_state._pending_filename = uploaded_file.name if uploaded_file else None
+    st.session_state._pq = user_query.strip()
+    if uploaded_file is not None:
+        st.session_state._pf = uploaded_file.getvalue()
+        st.session_state._pfn = uploaded_file.name
+    else:
+        st.session_state._pf = None
+        st.session_state._pfn = None
     st.rerun()
 
-# 阶段2：处理待处理查询
-if st.session_state.get("_pending_query"):
-    query_text = st.session_state._pending_query
-    file_bytes = st.session_state.get("_pending_file")
-    file_name = st.session_state.get("_pending_filename")
-    del st.session_state._pending_query
-    st.session_state._pending_file = None
-    st.session_state._pending_filename = None
-
-    # 先插入用户提问（占位，让用户立刻看到）
+# 阶段2：_pq 存在 → 插入占位，rerun
+if st.session_state.get("_pq"):
+    # 存到本地变量（后续阶段3用 session_state）
+    # 先插入占位条目
     st.session_state.history.insert(0, {
-        "query": query_text,
-        "response": "正在分析中...",
+        "query": st.session_state._pq,
+        "response": "__loading__",
         "file_name": None,
         "file_data": None,
         "emails": [],
-        "_loading": True,
     })
     st.session_state.widget_key += 1
     st.rerun()
 
-# 阶段3：处理标记为 _loading 的条目
+# 阶段3：处理首个 __loading__ 条目
 loading_entry = None
 for h in st.session_state.history:
-    if h.get("_loading"):
+    if h.get("response") == "__loading__":
         loading_entry = h
         break
 
 if loading_entry:
     try:
         query_text = loading_entry["query"]
+        fb = st.session_state.get("_pf")
+        fn = st.session_state.get("_pfn")
 
         # 处理上传文件
-        if file_bytes is not None or (hasattr(st, 'session_state') and False):
-            pass  # 文件已在阶段1获取
-        # 重新获取文件（如果有）
-        if loading_entry.get("_pending_file"):
-            fb = loading_entry["_pending_file"]
-            fn = loading_entry.get("_pending_filename", "")
-            if fb:
-                file_text = parse_file_content(fb, fn)
-                set_uploaded_file(file_text, fn)
-                st.session_state.file_loaded = True
+        if fb is not None:
+            file_text = parse_file_content(fb, fn)
+            set_uploaded_file(file_text, fn)
+            st.session_state.file_loaded = True
 
         history_for_agent = []
         for h in st.session_state.history:
-            if h.get("_loading"):
+            if h.get("response") == "__loading__":
                 continue
             history_for_agent.append({"role": "user", "content": h["query"]})
             history_for_agent.append({"role": "assistant", "content": h["response"]})
@@ -271,33 +264,35 @@ if loading_entry:
             chat_history=history_for_agent if history_for_agent else None,
         )
 
-        # 拉取邮件
         entry_emails = []
         try:
             entry_emails = get_emails()
         except Exception:
             pass
 
-        # 更新占位条目
         loading_entry["response"] = response
         loading_entry["emails"] = entry_emails
-        loading_entry["_loading"] = False
-        if file_bytes:
-            loading_entry["file_name"] = file_name
-            loading_entry["file_data"] = file_bytes
-            if not any(f["name"] == file_name and f["type"] == "upload" for f in st.session_state.file_vault):
+        if fb is not None:
+            loading_entry["file_name"] = fn
+            loading_entry["file_data"] = fb
+            if not any(f["name"] == fn for f in st.session_state.file_vault):
                 st.session_state.file_vault.append({
-                    "name": file_name, "data": file_bytes, "type": "upload",
+                    "name": fn, "data": fb, "type": "upload",
                 })
 
         set_uploaded_file("", "")
         st.session_state.file_loaded = False
         st.session_state.last_file_key = None
+        # 清除暂存
+        st.session_state._pq = None
+        st.session_state._pf = None
+        st.session_state._pfn = None
         st.rerun()
 
     except Exception:
         loading_entry["response"] = "❌ 系统繁忙，请稍后重试。"
-        loading_entry["_loading"] = False
+        st.session_state._pq = None
+        st.session_state._pf = None
         st.rerun()
 
 elif submit and not user_query.strip():
