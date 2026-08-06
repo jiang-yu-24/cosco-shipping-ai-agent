@@ -193,10 +193,19 @@ with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=Fa
 # ============================================================
 if submit and user_query.strip():
     status_placeholder.markdown(
+        '<div style="'
+        'background: linear-gradient(135deg, #e8f0fe 0%, #d4e4fc 100%);'
+        'border: 1px solid #a8c8f0;'
+        'border-radius: 10px;'
+        'padding: 14px 20px;'
+        'font-size: 15px;'
+        'color: #2c5aa0;'
+        '">'
         '正在分析中，请稍候'
         '<span class="loading-dots">'
         '<span>.</span><span>.</span><span>.</span>'
-        '</span>',
+        '</span>'
+        '</div>',
         unsafe_allow_html=True,
     )
 
