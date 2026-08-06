@@ -135,11 +135,12 @@ if st.session_state.history:
         pdfs = get_pdfs()
     except ImportError:
         pdfs = []
-    for pdf_data, pdf_name in pdfs:
+    for j, (pdf_data, pdf_name) in enumerate(pdfs):
         st.download_button(
             label=f"📥 下载 {pdf_name}",
             data=pdf_data, file_name=pdf_name,
             mime="application/pdf", type="primary",
+            key=f"pdf_dl_{j}_{st.session_state.widget_key}",
         )
         if not any(f["name"] == pdf_name and f["type"] == "pdf" for f in st.session_state.file_vault):
             st.session_state.file_vault.append({
