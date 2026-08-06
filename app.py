@@ -149,7 +149,7 @@ for j, (pdf_data, pdf_name) in enumerate(pdfs):
 if st.session_state.history:
     for i, h in enumerate(reversed(st.session_state.history)):
         with st.chat_message("user"):
-            st.markdown(h["query"])
+            st.code(h["query"], language="")
         with st.chat_message("assistant"):
             st.code(h["response"], language="")
             if h.get("file_data"):
