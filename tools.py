@@ -369,41 +369,26 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
 def compose_email(subject: str, body: str, recipient: str = "") -> str:
     """
     编写邮件，生成可复制主题和正文的文本框。
-
-    当用户要求「写一封邮件」「起草邮件」「帮我回复」等场景时调用此工具。
-    生成后页面将显示可点击复制的主题和正文输入框。
+    支持依次调用多次生成多封邮件。
 
     参数:
-        subject: 邮件主题（不含"主题："前缀）
-        body: 邮件正文（不含"正文："前缀，可含换行符）
-        recipient: 收件人邮箱或名称（可选）
+        subject: 邮件主题
+        body: 邮件正文（可含换行符）
+        recipient: 收件人（可选）
     """
-    # 存储到模块变量供 app.py 渲染
-    global _email_subject, _email_body, _email_recipient
-    _email_subject = subject
-    _email_body = body
-    _email_recipient = recipient
-
-    return (
-        f"✅ 邮件已编写完成。\n"
-        + (f"收件人：{recipient}\n" if recipient else "")
-        + f"主题和正文显示在结果区域，可直接点击复制。"
-    )
+    global _email_queue
+    _email_queue.append((subject, body, recipient))
+    return f"邮件「{subject}」已编写，可在结果区直接复制。"
 
 
-# 邮件暂存变量（供 app.py 读取）
-_email_subject: str = ""
-_email_body: str = ""
-_email_recipient: str = ""
+_email_queue: list = []  # [(subject, body, recipient), ...]
 
 
-def get_email() -> tuple:
-    """获取已编写的邮件信息，读取后清空。"""
-    global _email_subject, _email_body, _email_recipient
-    result = (_email_subject, _email_body, _email_recipient)
-    _email_subject = ""
-    _email_body = ""
-    _email_recipient = ""
+def get_emails() -> list:
+    """获取所有待展示的邮件列表，读取后清空。"""
+    global _email_queue
+    result = _email_queue[:]
+    _email_queue = []
     return result
 
 

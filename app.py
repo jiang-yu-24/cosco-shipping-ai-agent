@@ -11,7 +11,7 @@ if "DEEPSEEK_API_KEY" in st.secrets:
 from tools import (
     TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_DISPLAY_NAMES,
     parse_file_content, set_uploaded_file, get_uploaded_file_info,
-    get_email,
+    get_emails,
 )
 from agent_core import run_agent
 
@@ -144,17 +144,19 @@ if st.session_state.history:
                 "name": pdf_name, "data": pdf_data, "type": "pdf",
             })
 
-    # 邮件编写输出
-    email_subject, email_body, email_recipient = get_email()
-    if email_subject or email_body:
+    # 邮件编写输出（支持多封）
+    try:
+        emails = get_emails()
+    except Exception:
+        emails = []
+    for subject, body, recipient in emails:
         with st.container(border=True):
-            st.caption("邮件已编写，点击文本框可复制内容")
-            if email_recipient:
-                st.caption(f"收件人：{email_recipient}")
+            if recipient:
+                st.caption(f"收件人：{recipient}")
             st.caption("主题")
-            st.code(email_subject, language="")
+            st.code(subject, language="")
             st.caption("正文")
-            st.code(email_body, language="")
+            st.code(body, language="")
 else:
     st.info(
         "欢迎使用远航助手！请在下方框内输入指令。\n\n"
