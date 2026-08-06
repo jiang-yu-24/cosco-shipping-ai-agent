@@ -175,11 +175,11 @@ def _p(text: str, styles: dict, key: str = "body") -> Paragraph:
 
 
 def _table(rows: list, col_widths: list, styles: dict) -> Table:
-    """创建格式化表格。"""
+    """创建格式化表格。表内容经 _wrap_cjk 处理中文混排。"""
     formatted = []
     for i, row in enumerate(rows):
         sty = styles["cell_header"] if i == 0 else styles["cell"]
-        formatted.append([Paragraph(str(c).replace("\n", "<br/>"), sty) for c in row])
+        formatted.append([Paragraph(_wrap_cjk(str(c)).replace("\n", "<br/>"), sty) for c in row])
 
     t = Table(formatted, colWidths=col_widths)
     t.setStyle(TableStyle([
@@ -259,8 +259,6 @@ def generate_schedule_confirmation(
     doc_no = f"COSCO BULK 航确字〔{now.year}〕第{now.strftime('%m%d%H%M')}号"
 
     elements = [
-        _p(f"致：{consignee}", styles, "recipient"),
-        Spacer(1, 4 * mm),
         _p("根据贵我双方签署的运输合同，我司确认以下船期安排，现函告如下：", styles, "body"),
         Spacer(1, 4 * mm),
     ]
