@@ -112,7 +112,7 @@ st.caption("中远海运散货运输智能助理 · 船期查询 · 文件分析
 # ============================================================
 if st.session_state.history:
     # 从旧到新展示所有对话
-    for h in reversed(st.session_state.history):
+    for i, h in enumerate(reversed(st.session_state.history)):
         with st.chat_message("user"):
             st.markdown(h["query"])
         with st.chat_message("assistant"):
@@ -124,7 +124,7 @@ if st.session_state.history:
                     data=h["file_data"],
                     file_name=h["file_name"],
                     mime="application/octet-stream",
-                    key=f"hist_dl_{h['query'][:20]}",
+                    key=f"hist_dl_{i}",
                 )
 
     # PDF 生成下载按钮
