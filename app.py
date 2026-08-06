@@ -54,8 +54,6 @@ if "history" not in st.session_state:
     st.session_state.processing = False
 if "file_vault" not in st.session_state:
     st.session_state.file_vault = []
-if "email_vault" not in st.session_state:
-    st.session_state.email_vault = []  # [{subject, body, recipient}, ...]
 
 # ============================================================
 # 左侧边栏
@@ -127,6 +125,13 @@ if st.session_state.history:
                     mime="application/octet-stream",
                     key=f"hist_dl_{i}",
                 )
+            # 该回复关联的邮件
+            for subject, body, recipient in h.get("emails", []):
+                with st.container(border=True):
+                    if recipient:
+                        st.caption(f"收件人：{recipient}")
+                    st.code(subject, language="")
+                    st.code(body, language="")
 else:
     st.info(
         "欢迎使用远航助手！请在下方框内输入指令。\n\n"
@@ -153,21 +158,6 @@ for j, (pdf_data, pdf_name) in enumerate(pdfs):
         st.session_state.file_vault.append({
             "name": pdf_name, "data": pdf_data, "type": "pdf",
         })
-
-# 邮件暂存区（对话下方）
-if st.session_state.email_vault:
-    for i, (subject, body, recipient) in enumerate(st.session_state.email_vault):
-        with st.container(border=True):
-            col1, col2 = st.columns([10, 1])
-            with col1:
-                if recipient:
-                    st.caption(f"收件人：{recipient}")
-            with col2:
-                if st.button("✕", key=f"rm_email_{i}"):
-                    st.session_state.email_vault.pop(i)
-                    st.rerun()
-            st.code(subject, language="")
-            st.code(body, language="")
 
 # 状态提示（对话区与输入框之间）
 status_placeholder = st.empty()
@@ -250,20 +240,20 @@ if submit and user_query.strip():
                     "name": file_name, "data": file_data, "type": "upload",
                 })
 
+        # 拉取本轮的邮件
+        entry_emails = []
+        try:
+            entry_emails = get_emails()
+        except Exception:
+            pass
+
         st.session_state.history.insert(0, {
             "query": user_query.strip(),
             "response": response,
             "file_name": file_name,
             "file_data": file_data,
+            "emails": entry_emails,
         })
-        # 拉取新生成的邮件加入持久暂存区
-        try:
-            for email in get_emails():
-                if email not in st.session_state.email_vault:
-                    st.session_state.email_vault.append(email)
-        except Exception:
-            pass
-
         set_uploaded_file("", "")
         st.session_state.file_loaded = False
         st.session_state.last_file_key = None
