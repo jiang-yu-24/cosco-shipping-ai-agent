@@ -364,6 +364,123 @@ def generate_generic_pdf(title: str, content: str) -> bytes:
     return _build_generic(title, elements)
 
 
+def generate_proposal(
+    title: str,
+    project_name: str = "",
+    department: str = "",
+    content: str = "",
+) -> bytes:
+    """
+    生成央企数字化项目方案 PDF。
+
+    参数:
+        title: 方案标题
+        project_name: 项目名称
+        department: 申报单位
+        content: 方案正文（按模板章节组织，以 # 号标注章节标题）
+    """
+    _init_fonts()
+    styles = _make_styles()
+
+    # 封面样式
+    cover_title = ParagraphStyle(
+        "cover_title", fontName="Helvetica", fontSize=24,
+        alignment=TA_CENTER, leading=36, spaceAfter=20,
+    )
+    cover_sub = ParagraphStyle(
+        "cover_sub", fontName="Helvetica", fontSize=14,
+        alignment=TA_CENTER, leading=22, textColor=HexColor("#555555"),
+    )
+    # 章节标题样式
+    section_h = ParagraphStyle(
+        "section_h", fontName="Helvetica", fontSize=14,
+        alignment=TA_LEFT, leading=22, spaceBefore=10, spaceAfter=6,
+    )
+    body = styles["body"]
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        topMargin=22 * mm, bottomMargin=18 * mm,
+        leftMargin=25 * mm, rightMargin=25 * mm,
+    )
+
+    story = []
+
+    # --- 封面 ---
+    story.append(Spacer(1, 40 * mm))
+    story.append(Paragraph(_wrap_cjk("数字化项目方案"), cover_title))
+    story.append(Spacer(1, 10 * mm))
+    story.append(Paragraph(_wrap_cjk(title), cover_title))
+    story.append(Spacer(1, 15 * mm))
+    if project_name:
+        story.append(Paragraph(_wrap_cjk(f"项目名称：{project_name}"), cover_sub))
+    if department:
+        story.append(Paragraph(_wrap_cjk(f"申报单位：{department}"), cover_sub))
+    now = datetime.now(_CST)
+    story.append(Paragraph(_wrap_cjk(f"编制日期：{now.strftime('%Y年%m月%d日')}"), cover_sub))
+    story.append(Spacer(1, 10 * mm))
+
+    # 封面分隔线
+    story.append(_red_line(1.0, 8))
+
+    # --- 正文：按章节解析 ---
+    sections = content.strip().split("\n#")
+    for i, sec in enumerate(sections):
+        sec = sec.strip()
+        if not sec:
+            continue
+
+        # 第一个章节可能有 "# " 前缀，后续章节在 split 时去掉了 "#"
+        if i == 0 and sec.startswith("# "):
+            sec = sec[2:]
+        elif i == 0 and sec.startswith("#"):
+            sec = sec[1:]
+
+        # 提取章节标题和正文
+        lines = sec.split("\n", 1)
+        heading = lines[0].strip()
+        # 去掉可能的 "##" 前缀（二级标题）
+        heading = heading.lstrip("#").strip()
+        sec_body = lines[1].strip() if len(lines) > 1 else ""
+
+        # 渲染章节标题
+        story.append(Paragraph(_wrap_cjk(heading), section_h))
+        story.append(_red_line(0.3, 4))
+
+        # 渲染章节正文（按段落分割）
+        for para in sec_body.split("\n"):
+            para = para.strip()
+            if para:
+                # 检测表格行（包含 | 符号）
+                if " | " in para and para.count("|") >= 2:
+                    rows = []
+                    for row_line in [para]:
+                        cells = [c.strip() for c in row_line.split("|")]
+                        if cells:
+                            rows.append(cells)
+                    if rows:
+                        col_w = [(doc.width - 50) / len(rows[0])] * len(rows[0])
+                        story.append(_table(rows, col_w, styles))
+                        story.append(Spacer(1, 3 * mm))
+                else:
+                    story.append(_p(para, styles, "body"))
+            else:
+                story.append(Spacer(1, 2 * mm))
+
+        story.append(Spacer(1, 4 * mm))
+
+    # --- 尾页 ---
+    story.append(Spacer(1, 15 * mm))
+    story.append(_p("编制单位审核意见：", styles, "body"))
+    story.append(Spacer(1, 20 * mm))
+    story.append(_p(f"编制人：________    审核人：________    批准人：________", styles, "body"))
+    story.append(_p(f"日期：________    日期：________    日期：________", styles, "body"))
+
+    doc.build(story)
+    return buf.getvalue()
+
+
 # ============================================================
 # 存储已生成的 PDF（供 app.py 下载）
 # ============================================================

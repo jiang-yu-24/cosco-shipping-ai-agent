@@ -275,13 +275,13 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
                       consignor: str = "", consignee: str = "",
                       recipient: str = "") -> str:
     """
-    生成 PDF 文档（船期确认函/航运报告/通用公文/通用格式）。
+    生成 PDF 文档（船期确认函/航运报告/通用公文/通用格式/项目方案）。
 
     当用户要求生成文档时调用此工具。红头公文类用 schedule/report/official，
-    非正式文档（说明书、总结等）用 generic。生成后可下载 PDF 文件。
+    非正式文档用 generic，数字化项目方案用 proposal。生成后可下载 PDF 文件。
 
     参数:
-        doc_type: 文档类型 — "schedule"（船期确认函）、"report"（航运报告）、"official"（通用公文）、"generic"（通用格式，无红头落款）
+        doc_type: 文档类型 — "schedule"（船期确认函）、"report"（航运报告）、"official"（通用公文）、"generic"（通用格式）、"proposal"（数字化项目方案）
         title: 文档标题
         content: 正文内容（换行分段）
         route: [schedule] 航线
@@ -298,6 +298,7 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
         generate_shipping_report,
         generate_official_document,
         generate_generic_pdf,
+        generate_proposal,
         store_pdf,
     )
 
@@ -339,11 +340,20 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
             )
             filename = f"{title or '文档'}_{ts}.pdf"
 
+        elif doc_type == "proposal":
+            pdf_bytes = generate_proposal(
+                title=title or "数字化项目方案",
+                project_name=route or "",    # 复用 route 参数传递项目名称
+                department=consignor or "",  # 复用 consignor 参数传递申报单位
+                content=content or "（无正文内容）",
+            )
+            filename = f"项目方案_{title or '未命名'}_{ts}.pdf"
+
         else:
             return (
                 f"❌ 不支持的文档类型「{doc_type}」。"
                 f"可选类型：schedule（船期确认函）、report（航运报告）、"
-                f"official（通用公文）、generic（通用格式）"
+                f"official（通用公文）、generic（通用格式）、proposal（项目方案）"
             )
 
         store_pdf(pdf_bytes, filename)
@@ -464,19 +474,20 @@ TOOL_DESCRIPTIONS: List[Dict[str, Any]] = [
         "function": {
             "name": "generate_document",
             "description": (
-                "生成 PDF 文件。四种类型："
+                "生成 PDF 文件。五种类型："
                 "schedule=船期确认函（红头公文）、"
                 "report=航运报告（红头公文）、"
                 "official=通用公文（红头公文）、"
-                "generic=简洁排版（无红头，适合说明书/总结等）。"
+                "generic=简洁排版（无红头）、"
+                "proposal=数字化项目方案（央企标准格式，含封面+签审页）。"
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
                     "doc_type": {
                         "type": "string",
-                        "description": "schedule=船期确认函 report=航运报告 official=公文 generic=简洁排版",
-                        "enum": ["schedule", "report", "official", "generic"],
+                        "description": "schedule=船期确认函 report=航运报告 official=公文 generic=简洁排版 proposal=项目方案",
+                        "enum": ["schedule", "report", "official", "generic", "proposal"],
                     },
                     "title": {
                         "type": "string",
