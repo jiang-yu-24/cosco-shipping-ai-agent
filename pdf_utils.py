@@ -183,29 +183,8 @@ def _make_styles():
     }
 
 
-# CJK 标点禁则：这些字符不应出现在行首。在其前面插入 NBSP( ) 阻止独立断行。
-_FORBIDDEN_LINE_START = set(
-    "，。、》」』】！？％…—～：）］”'″′〉"
-    + ",.;:!?%)}]'\""
-)
-
-
-def _kinsoku(text: str) -> str:
-    """
-    CJK 禁则处理：在不能出现在行首的标点前插入 NBSP ( )，
-    确保标点与前面的字符在同行。NBSP 是标准 Unicode 空格，所有字体原生支持。
-    """
-    result = []
-    for i, ch in enumerate(text):
-        if ch in _FORBIDDEN_LINE_START and i > 0 and text[i - 1] not in (" ", "\n", " "):
-            result.append(" ")
-        result.append(ch)
-    return "".join(result)
-
-
 def _p(text: str, styles: dict, key: str = "body") -> Paragraph:
-    """创建段落：禁则处理 + <br/> 换行 + CJK 字体混排。"""
-    text = _kinsoku(text)
+    """创建段落：<br/> 换行 + CJK 字体混排。"""
     text = text.replace("\n", "<br/>")
     text = _wrap_cjk(text)
     return Paragraph(text, styles[key])
@@ -486,25 +465,38 @@ def generate_proposal(
         story.append(Paragraph(_wrap_cjk(heading), section_h))
         story.append(_red_line(0.3, 4))
 
-        # 渲染章节正文（按段落分割）
-        for para in sec_body.split("\n"):
-            para = para.strip()
-            if para:
-                # 检测表格行（包含 | 符号）
-                if " | " in para and para.count("|") >= 2:
-                    rows = []
-                    for row_line in [para]:
-                        cells = [c.strip() for c in row_line.split("|")]
-                        if cells:
-                            rows.append(cells)
-                    if rows:
-                        col_w = [(doc.width - 50) / len(rows[0])] * len(rows[0])
-                        story.append(_table(rows, col_w, styles))
-                        story.append(Spacer(1, 3 * mm))
-                else:
-                    story.append(_p(para, styles, "body"))
-            else:
+        # 渲染章节正文（按段落分割，连续 | 行自动合并为表格）
+        para_lines = sec_body.split("\n")
+        i = 0
+        while i < len(para_lines):
+            para = para_lines[i].strip()
+
+            # 跳过空行
+            if not para:
                 story.append(Spacer(1, 2 * mm))
+                i += 1
+                continue
+
+            # 检测表格行（包含 | 且至少2个分隔符）
+            if "|" in para and para.count("|") >= 2:
+                rows = []
+                while i < len(para_lines) and "|" in para_lines[i] and para_lines[i].count("|") >= 2:
+                    cells = [c.strip() for c in para_lines[i].strip().split("|")]
+                    # 去掉首尾可能的空串
+                    if cells and cells[0] == "":
+                        cells = cells[1:]
+                    if cells and cells[-1] == "":
+                        cells = cells[:-1]
+                    if cells:
+                        rows.append(cells)
+                    i += 1
+                if rows:
+                    col_w = [(doc.width - 50) / len(rows[0])] * len(rows[0])
+                    story.append(_table(rows, col_w, styles))
+                    story.append(Spacer(1, 3 * mm))
+            else:
+                story.append(_p(para, styles, "body"))
+                i += 1
 
         story.append(Spacer(1, 4 * mm))
 
