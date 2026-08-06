@@ -127,19 +127,18 @@ if st.session_state.history:
                     key=f"hist_dl_{i}",
                 )
 
-    # PDF 生成下载按钮
+    # PDF 生成下载按钮（支持多份）
     try:
-        from pdf_utils import get_pdf
-        pdf_data, pdf_name = get_pdf()
+        from pdf_utils import get_pdfs
+        pdfs = get_pdfs()
     except ImportError:
-        pdf_data, pdf_name = None, ""
-    if pdf_data is not None:
+        pdfs = []
+    for pdf_data, pdf_name in pdfs:
         st.download_button(
             label=f"📥 下载 {pdf_name}",
             data=pdf_data, file_name=pdf_name,
             mime="application/pdf", type="primary",
         )
-        # 加入文件暂存区（去重）
         if not any(f["name"] == pdf_name and f["type"] == "pdf" for f in st.session_state.file_vault):
             st.session_state.file_vault.append({
                 "name": pdf_name, "data": pdf_data, "type": "pdf",

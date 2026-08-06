@@ -428,19 +428,17 @@ def generate_proposal(
 # 存储已生成的 PDF（供 app.py 下载）
 # ============================================================
 
-_generated_pdf: Optional[bytes] = None
-_generated_pdf_name: str = ""
+_pdf_queue: list = []  # [(bytes, filename), ...]
 
 
 def store_pdf(pdf_bytes: bytes, filename: str) -> None:
-    global _generated_pdf, _generated_pdf_name
-    _generated_pdf = bytes(pdf_bytes)
-    _generated_pdf_name = filename
+    global _pdf_queue
+    _pdf_queue.append((bytes(pdf_bytes), filename))
 
 
-def get_pdf() -> Tuple[Optional[bytes], str]:
-    global _generated_pdf, _generated_pdf_name
-    result = (_generated_pdf, _generated_pdf_name)
-    _generated_pdf = None
-    _generated_pdf_name = ""
+def get_pdfs() -> list:
+    """获取所有待下载的 PDF 列表 [(data, name), ...]，读取后清空。"""
+    global _pdf_queue
+    result = _pdf_queue[:]
+    _pdf_queue = []
     return result

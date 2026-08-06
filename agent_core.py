@@ -77,7 +77,7 @@ def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = No
             "你是「远航助手」，央国企数字化项目 AI 助理。"
             ""
             "PDF 类型：schedule=船期确认 report=报告 official=公文 generic=通用 proposal=项目方案。"
-            "关键：用户提 PDF 关键词立刻调用 generate_document，不要先问。"
+            "关键：用户提 PDF 关键词立刻调用 generate_document。需多份时依次多次调用，不可省略。"
             ""
             "proposal 规则（严格）："
             "- route 参数填项目名称，consignor 填申报单位（必须是企业/部门名，不能是人名）"
