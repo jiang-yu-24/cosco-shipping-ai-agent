@@ -166,7 +166,7 @@ st.divider()
 # ============================================================
 # 第2区：查询栏（下方）
 # ============================================================
-with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=False):
+with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=True):
     user_query = st.text_area(
         "查询内容",
         placeholder="Shift+Enter 换行，Enter 直接查询",
