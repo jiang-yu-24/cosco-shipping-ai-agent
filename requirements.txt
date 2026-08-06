@@ -1,8 +1,6 @@
 openai>=1.0.0,<2.0.0
 streamlit>=1.35.0,<2.0.0
-starlette>=0.38.0,<0.47.0
 python-dotenv>=1.0.0,<2.0.0
 PyPDF2>=3.0.0,<4.0.0
 openpyxl>=3.1.0,<4.0.0
-fpdf2>=2.7.0,<3.0.0
 reportlab>=4.0,<5.0
