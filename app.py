@@ -52,6 +52,7 @@ if "history" not in st.session_state:
     st.session_state.last_file_key = None
     st.session_state.widget_key = 0
     st.session_state.processing = False
+    st.session_state.file_vault = []  # [{name, data, type: "upload"|"pdf"}]
 
 # ============================================================
 # 左侧边栏
@@ -61,16 +62,25 @@ with st.sidebar:
     st.markdown("*智能航运服务平台*")
     st.divider()
 
-    if st.session_state.file_loaded:
-        st.subheader("📎 已加载文件")
-        _, file_name = get_uploaded_file_info()
-        st.success(f"📄 {file_name}")
-        if st.button("清除文件", use_container_width=True):
-            set_uploaded_file("", "")
-            st.session_state.file_loaded = False
-            st.session_state.last_file_key = None
+    # 文件暂存区
+    st.subheader("📎 文件暂存区")
+    if st.session_state.file_vault:
+        for i, f in enumerate(st.session_state.file_vault):
+            icon = "📄" if f["type"] == "upload" else "📑"
+            st.download_button(
+                label=f"{icon} {f['name']}",
+                data=f["data"],
+                file_name=f["name"],
+                mime="application/octet-stream" if f["type"] == "upload" else "application/pdf",
+                use_container_width=True,
+                key=f"vault_dl_{i}",
+            )
+        if st.button("清空暂存区", use_container_width=True):
+            st.session_state.file_vault = []
             st.rerun()
-        st.divider()
+    else:
+        st.caption("暂无文件，上传或生成PDF后将出现在此")
+    st.divider()
 
     st.subheader("🔧 服务能力")
     st.caption(f"共 {len(TOOL_NAMES)} 项服务")
@@ -128,6 +138,11 @@ if st.session_state.history:
             data=pdf_data, file_name=pdf_name,
             mime="application/pdf", type="primary",
         )
+        # 加入文件暂存区（去重）
+        if not any(f["name"] == pdf_name and f["type"] == "pdf" for f in st.session_state.file_vault):
+            st.session_state.file_vault.append({
+                "name": pdf_name, "data": pdf_data, "type": "pdf",
+            })
 
     # 邮件编写输出
     email_subject, email_body, email_recipient = get_email()
@@ -215,6 +230,11 @@ if submit and user_query.strip():
         if uploaded_file is not None:
             file_data = uploaded_file.getvalue()
             file_name = uploaded_file.name
+            # 加入文件暂存区
+            if not any(f["name"] == file_name and f["type"] == "upload" for f in st.session_state.file_vault):
+                st.session_state.file_vault.append({
+                    "name": file_name, "data": file_data, "type": "upload",
+                })
 
         st.session_state.history.insert(0, {
             "query": user_query.strip(),
