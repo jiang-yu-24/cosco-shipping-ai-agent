@@ -86,17 +86,46 @@ def _needs_cjk(text: str) -> bool:
 
 def _wrap_cjk(text: str) -> str:
     """
-    检测文本是否含中文，如含则用 <font face="CJK"> 包裹整段。
-    这样做比逐字符拆分更简单，且 reportlab 对同一段落内单一字体处理更好。
+    逐字符扫描文本，将 CJK 字符段用 <font face="CJK"> 包裹，
+    非 CJK 字符（拉丁、数字、符号）保持 Helvetica 渲染。
 
-    不含中文的文本（如纯数字、英文）不做包裹，直接用 Helvetica。
+    示例输入：  "预计 2026-08-15 到港"
+    示例输出：  '<font face="CJK">预计 </font>2026-08-15<font face="CJK"> 到港</font>'
     """
     cjk_ok = "CJK" in pdfmetrics._fonts
     if not cjk_ok:
         return text
-    if _needs_cjk(text):
-        return f'<font face="CJK">{text}</font>'
-    return text
+
+    result = []
+    buf = []
+    in_cjk = None  # None=初始, True=CJK缓冲区, False=拉丁缓冲区
+
+    for ch in text:
+        ch_is_cjk = _needs_cjk(ch)
+        if in_cjk is None:
+            in_cjk = ch_is_cjk
+            buf.append(ch)
+        elif ch_is_cjk == in_cjk:
+            buf.append(ch)
+        else:
+            # 字体切换，flush 缓冲区
+            segment = "".join(buf)
+            if in_cjk:
+                result.append(f'<font face="CJK">{segment}</font>')
+            else:
+                result.append(segment)
+            buf = [ch]
+            in_cjk = ch_is_cjk
+
+    # flush 最后一段
+    if buf:
+        segment = "".join(buf)
+        if in_cjk:
+            result.append(f'<font face="CJK">{segment}</font>')
+        else:
+            result.append(segment)
+
+    return "".join(result)
 
 
 def _make_styles():
