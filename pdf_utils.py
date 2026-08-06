@@ -328,28 +328,6 @@ def generate_generic_pdf(title: str, content: str) -> bytes:
     return _build_generic(title, elements)
 
 
-_WEASYPRINT_OK = None
-
-
-def _html_to_pdf(html: str, fallback_title: str = "", fallback_content: str = "") -> bytes:
-    """使用 WeasyPrint 将 HTML 转为 PDF；不可用时退回 reportlab 通用格式。"""
-    global _WEASYPRINT_OK
-    if _WEASYPRINT_OK is None:
-        try:
-            from weasyprint import HTML as _WH
-            _WH(string="<p>test</p>").write_pdf()
-            _WEASYPRINT_OK = True
-        except Exception:
-            _WEASYPRINT_OK = False
-
-    if _WEASYPRINT_OK:
-        from weasyprint import HTML as _WH2
-        return _WH2(string=html).write_pdf()
-
-    # 回退到 reportlab
-    import traceback
-    print(f"[pdf_utils] WeasyPrint 不可用，回退 reportlab：{traceback.format_exc()[-200:]}")
-    return generate_generic_pdf(fallback_title, fallback_content)
 
 
 def generate_proposal(
@@ -358,82 +336,92 @@ def generate_proposal(
     department: str = "",
     content: str = "",
 ) -> bytes:
-    """
-    生成央企数字化项目方案 PDF（WeasyPrint 引擎，CSS CJK 排版）。
-    """
-    now = datetime.now(_CST)
-    date_str = now.strftime("%Y年%m月%d日")
+    """生成央企数字化项目方案 PDF（reportlab 引擎）。"""
+    _init_fonts()
+    styles = _make_styles()
 
-    # 处理正文：管道表格 → HTML table，段落 → <p>
-    body_html = ""
-    for section in _re.split(r"\n(?=[一二三四五六七八九十]、)", content.strip()):
-        section = section.strip()
-        if not section:
+    cover_title = ParagraphStyle(
+        "cover_title", fontName="Helvetica", fontSize=24,
+        alignment=TA_CENTER, leading=36, spaceAfter=20,
+    )
+    cover_sub = ParagraphStyle(
+        "cover_sub", fontName="Helvetica", fontSize=14,
+        alignment=TA_CENTER, leading=22, textColor=HexColor("#555555"),
+    )
+    section_h = ParagraphStyle(
+        "section_h", fontName="Helvetica", fontSize=14,
+        alignment=TA_LEFT, leading=22, spaceBefore=10, spaceAfter=6,
+    )
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        topMargin=22 * mm, bottomMargin=18 * mm,
+        leftMargin=25 * mm, rightMargin=25 * mm,
+    )
+    story = []
+
+    # 封面
+    now = datetime.now(_CST)
+    story.append(Spacer(1, 40 * mm))
+    story.append(Paragraph(_wrap_cjk("数字化项目方案"), cover_title))
+    story.append(Spacer(1, 10 * mm))
+    story.append(Paragraph(_wrap_cjk(title), cover_title))
+    story.append(Spacer(1, 15 * mm))
+    if project_name:
+        story.append(Paragraph(_wrap_cjk(f"项目名称：{project_name}"), cover_sub))
+    if department:
+        story.append(Paragraph(_wrap_cjk(f"申报单位：{department}"), cover_sub))
+    story.append(Paragraph(_wrap_cjk(f"编制日期：{now.strftime('%Y年%m月%d日')}"), cover_sub))
+    story.append(Spacer(1, 10 * mm))
+    story.append(_red_line(1.0, 8))
+
+    # 正文章节
+    for sec in _re.split(r"\n(?=[一二三四五六七八九十]、)", content.strip()):
+        sec = sec.strip()
+        if not sec:
             continue
-        lines = section.split("\n", 1)
+        lines = sec.split("\n", 1)
         heading = lines[0].strip()
         sec_body = lines[1].strip() if len(lines) > 1 else ""
 
-        body_html += f'<h2>{heading}</h2>\n'
+        story.append(Paragraph(_wrap_cjk(heading), section_h))
+        story.append(_red_line(0.3, 4))
 
-        # 收集连续的表格行
         para_lines = sec_body.split("\n")
         i = 0
         while i < len(para_lines):
             line = para_lines[i].strip()
             if not line:
+                story.append(Spacer(1, 2 * mm))
                 i += 1
                 continue
             if "|" in line and line.count("|") >= 2:
-                body_html += '<table>\n'
+                rows = []
                 while i < len(para_lines) and "|" in para_lines[i] and para_lines[i].count("|") >= 2:
                     cells = [c.strip() for c in para_lines[i].strip().split("|")]
-                    cells = [c for c in cells if c]  # 去空
+                    cells = [c for c in cells if c]
                     if cells:
-                        tag = "th" if i == 0 else "td"
-                        body_html += "<tr>" + "".join(f"<{tag}>{c}</{tag}>" for c in cells) + "</tr>\n"
+                        rows.append(cells)
                     i += 1
-                body_html += '</table>\n'
+                if rows:
+                    col_w = [(doc.width - 50) / len(rows[0])] * len(rows[0])
+                    story.append(_table(rows, col_w, styles))
+                    story.append(Spacer(1, 3 * mm))
             else:
-                body_html += f"<p>{line}</p>\n"
+                story.append(_p(line, styles, "body"))
                 i += 1
+        story.append(Spacer(1, 4 * mm))
 
-    html = f"""<!DOCTYPE html>
-<html lang="zh-CN">
-<head><meta charset="utf-8">
-<style>
-  @page {{ size: A4; margin: 2.5cm 2.5cm 2cm 2.5cm; }}
-  body {{ font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif; font-size: 12pt; line-height: 1.8; color: #222; }}
-  .cover {{ text-align: center; padding-top: 6cm; page-break-after: always; }}
-  .cover h1 {{ font-size: 26pt; margin-bottom: 1cm; }}
-  .cover .sub {{ font-size: 14pt; color: #555; margin: 0.3cm 0; }}
-  .cover hr {{ border: none; border-top: 2px solid #B40000; width: 60%; margin: 1.5cm auto 0 auto; }}
-  h2 {{ font-size: 15pt; margin: 1.2cm 0 0.4cm 0; padding-bottom: 4px; border-bottom: 1px solid #B40000; }}
-  p {{ text-indent: 2em; margin: 0.3cm 0; line-break: strict; }}
-  table {{ border-collapse: collapse; width: 100%; margin: 0.4cm 0; }}
-  th, td {{ border: 1px solid #ccc; padding: 6px 10px; text-align: center; font-size: 11pt; }}
-  th {{ background: #eee; font-weight: bold; }}
-  .sign-page {{ padding-top: 4cm; page-break-before: always; }}
-  .sign-page p {{ text-indent: 0; margin: 0.8cm 0; }}
-</style></head>
-<body>
-<div class="cover">
-  <h1>数字化项目方案</h1>
-  <h1>{title}</h1>
-  <div class="sub">项目名称：{project_name or '（待填写）'}</div>
-  <div class="sub">申报单位：{department or '（待填写）'}</div>
-  <div class="sub">编制日期：{date_str}</div>
-  <hr>
-</div>
-{body_html}
-<div class="sign-page">
-  <h2>编制单位审核意见</h2>
-  <p>编制人：________________&emsp;审核人：________________&emsp;批准人：________________</p>
-  <p>日　期：________________&emsp;日　期：________________&emsp;日　期：________________</p>
-</div>
-</body></html>"""
+    # 签审页
+    story.append(Spacer(1, 15 * mm))
+    story.append(_p("编制单位审核意见：", styles, "body"))
+    story.append(Spacer(1, 20 * mm))
+    story.append(_p("编制人：________    审核人：________    批准人：________", styles, "body"))
+    story.append(_p("日期：________    日期：________    日期：________", styles, "body"))
 
-    return _html_to_pdf(html, fallback_title=title, fallback_content=content)
+    doc.build(story)
+    return buf.getvalue()
 
 
 # ============================================================
