@@ -8,6 +8,7 @@ PDF 文档生成模块 — 央企规范化公文模板
 
 import io
 import os
+import re as _re
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Tuple
 
@@ -131,7 +132,6 @@ def _make_styles():
 
 
 # CJK 禁则——用正则单次替换，避免逐字符遍历
-import re as _re
 _KINSOKU_PATTERN = _re.compile(
     r'([^\s\n ‍])([，。、》」』】！？％…—～：）］"'+"'"+r'″′〉,.;:!?%)}]'+"'"+r'"])'
 )
@@ -404,9 +404,8 @@ def generate_proposal(
     story.append(_red_line(1.0, 8))
 
     # --- 正文：按章节解析（支持「一、」「二、」格式和「#」格式） ---
-    import re
     # 按中文序号标题分割：一、二、三、... 或 # 开头
-    sections = re.split(r"\n(?=[一二三四五六七八九十]、|\d+、|# )", content.strip())
+    sections = _re.split(r"\n(?=[一二三四五六七八九十]、|\d+、|# )", content.strip())
     if len(sections) <= 1:
         # 无章节分割，整个内容作为正文
         sections = [content.strip()]
