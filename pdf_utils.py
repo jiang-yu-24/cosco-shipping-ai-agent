@@ -419,7 +419,7 @@ def generate_proposal(
         lines = sec.split("\n", 1)
         heading = lines[0].strip()
         # 清理标题前缀（# 或 中文序号）
-        heading = re.sub(r'^[#\s]+', '', heading)
+        heading = _re.sub(r'^[#\s]+', '', heading)
         # 保留原标题格式（如"一、项目概述"）
         sec_body = lines[1].strip() if len(lines) > 1 else ""
 
