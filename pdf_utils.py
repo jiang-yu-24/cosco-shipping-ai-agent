@@ -70,16 +70,32 @@ def _init_fonts():
 # ============================================================
 
 def _needs_cjk(text: str) -> bool:
-    """判断文本是否包含 CJK 字符。"""
+    """
+    判断文本是否包含 CJK、数学符号、特殊字符等 Helvetica 无法渲染的字符。
+    DroidSansFallback 覆盖了 CJK + 数学符号 + 箭头 + 几何图形等 Unicode 区块。
+    """
     for ch in text:
         cp = ord(ch)
-        if (0x4E00 <= cp <= 0x9FFF or   # CJK 统一汉字
-            0x3400 <= cp <= 0x4DBF or   # CJK 扩展 A
-            0x20000 <= cp <= 0x2A6DF or # CJK 扩展 B
-            0xF900 <= cp <= 0xFAFF or   # CJK 兼容汉字
-            0x3000 <= cp <= 0x303F or   # CJK 标点
-            0xFF00 <= cp <= 0xFFEF or   # 全角字符
-            0x2F800 <= cp <= 0x2FA1F):  # CJK 兼容补充
+        if (0x4E00 <= cp <= 0x9FFF or     # CJK 统一汉字
+            0x3400 <= cp <= 0x4DBF or     # CJK 扩展 A
+            0x20000 <= cp <= 0x2A6DF or   # CJK 扩展 B
+            0xF900 <= cp <= 0xFAFF or     # CJK 兼容汉字
+            0x3000 <= cp <= 0x303F or     # CJK 标点
+            0xFF00 <= cp <= 0xFFEF or     # 全角字符
+            0x2F800 <= cp <= 0x2FA1F or   # CJK 兼容补充
+            0x2200 <= cp <= 0x22FF or     # 数学运算符 (∀ ∂ ∃ ∑ ∏ ∫ √ ∞ ≈ ≠ ≤ ≥)
+            0x2190 <= cp <= 0x21FF or     # 箭头 (← → ↑ ↓ ↔ ↕)
+            0x2300 <= cp <= 0x23FF or     # 杂项技术符号 (⌂ ⌃ ⌄)
+            0x2500 <= cp <= 0x257F or     # 制表符
+            0x25A0 <= cp <= 0x25FF or     # 几何图形 (■ □ ▲ △ ◆ ◇)
+            0x2600 <= cp <= 0x26FF or     # 杂项符号 (☀ ☁ ☂ ★ ☆ ☎)
+            0x0391 <= cp <= 0x03C9 or     # 希腊字母 (Α-Ω α-ω)
+            0x2000 <= cp <= 0x206F or     # 通用标点 (— – … ‰)
+            0x2100 <= cp <= 0x214F or     # 字母式符号 (ℂ ℇ ℈ ℉ ℗ ℘ ℙ)
+            0x2150 <= cp <= 0x218F or     # 数字形式 (⅓ ⅔ ⅛ ⅜)
+            0x2460 <= cp <= 0x24FF or     # 带圈数字 (① ② ③)
+            0x2E80 <= cp <= 0x2EFF or     # CJK 部首补充
+            0xFE30 <= cp <= 0xFE4F):       # CJK 兼容形式
             return True
     return False
 
