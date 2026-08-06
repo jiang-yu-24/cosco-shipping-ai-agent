@@ -69,79 +69,26 @@ def _init_fonts():
 # 文本混排：拉丁用 Helvetica，中文用 CJK
 # ============================================================
 
-def _needs_cjk(text: str) -> bool:
-    """
-    判断文本是否包含 CJK、数学符号、特殊字符等 Helvetica 无法渲染的字符。
-    DroidSansFallback 覆盖了 CJK + 数学符号 + 箭头 + 几何图形等 Unicode 区块。
-    """
-    for ch in text:
-        cp = ord(ch)
-        if (0x4E00 <= cp <= 0x9FFF or     # CJK 统一汉字
-            0x3400 <= cp <= 0x4DBF or     # CJK 扩展 A
-            0x20000 <= cp <= 0x2A6DF or   # CJK 扩展 B
-            0xF900 <= cp <= 0xFAFF or     # CJK 兼容汉字
-            0x3000 <= cp <= 0x303F or     # CJK 标点
-            0xFF00 <= cp <= 0xFFEF or     # 全角字符
-            0x2F800 <= cp <= 0x2FA1F or   # CJK 兼容补充
-            0x2200 <= cp <= 0x22FF or     # 数学运算符 (∀ ∂ ∃ ∑ ∏ ∫ √ ∞ ≈ ≠ ≤ ≥)
-            0x2190 <= cp <= 0x21FF or     # 箭头 (← → ↑ ↓ ↔ ↕)
-            0x2300 <= cp <= 0x23FF or     # 杂项技术符号 (⌂ ⌃ ⌄)
-            0x2500 <= cp <= 0x257F or     # 制表符
-            0x25A0 <= cp <= 0x25FF or     # 几何图形 (■ □ ▲ △ ◆ ◇)
-            0x2600 <= cp <= 0x26FF or     # 杂项符号 (☀ ☁ ☂ ★ ☆ ☎)
-            0x0391 <= cp <= 0x03C9 or     # 希腊字母 (Α-Ω α-ω)
-            0x2000 <= cp <= 0x206F or     # 通用标点 (— – … ‰)
-            0x2100 <= cp <= 0x214F or     # 字母式符号 (ℂ ℇ ℈ ℉ ℗ ℘ ℙ)
-            0x2150 <= cp <= 0x218F or     # 数字形式 (⅓ ⅔ ⅛ ⅜)
-            0x2460 <= cp <= 0x24FF or     # 带圈数字 (① ② ③)
-            0x2E80 <= cp <= 0x2EFF or     # CJK 部首补充
-            0xFE30 <= cp <= 0xFE4F):       # CJK 兼容形式
-            return True
-    return False
+# CJK 字符正则（覆盖汉字、数学符号、希腊字母、箭头、几何图形等）
+_CJK_RE = _re.compile(
+    r'[一-鿿㐀-䶿豈-﫿'
+    r'　-〿＀-￯︰-﹏'
+    r'∀-⋿←-⇿⌀-⏿'
+    r'─-╿■-◿☀-⛿'
+    r'Α-ω -⁯℀-⅏'
+    r'⅐-↏①-⓿⺀-⻿]+'
+)
 
 
 def _wrap_cjk(text: str) -> str:
     """
-    逐字符扫描文本，将 CJK 字符段用 <font face="CJK"> 包裹，
-    非 CJK 字符（拉丁、数字、符号）保持 Helvetica 渲染。
-
-    示例输入：  "预计 2026-08-15 到港"
-    示例输出：  '<font face="CJK">预计 </font>2026-08-15<font face="CJK"> 到港</font>'
+    用正则匹配 CJK 连续字符段，包裹 <font face="CJK">，
+    非 CJK 字符保持 Helvetica。单次替换，O(n)。
     """
     cjk_ok = "CJK" in pdfmetrics._fonts
     if not cjk_ok:
         return text
-
-    result = []
-    buf = []
-    in_cjk = None  # None=初始, True=CJK缓冲区, False=拉丁缓冲区
-
-    for ch in text:
-        ch_is_cjk = _needs_cjk(ch)
-        if in_cjk is None:
-            in_cjk = ch_is_cjk
-            buf.append(ch)
-        elif ch_is_cjk == in_cjk:
-            buf.append(ch)
-        else:
-            # 字体切换，flush 缓冲区
-            segment = "".join(buf)
-            if in_cjk:
-                result.append(f'<font face="CJK">{segment}</font>')
-            else:
-                result.append(segment)
-            buf = [ch]
-            in_cjk = ch_is_cjk
-
-    # flush 最后一段
-    if buf:
-        segment = "".join(buf)
-        if in_cjk:
-            result.append(f'<font face="CJK">{segment}</font>')
-        else:
-            result.append(segment)
-
-    return "".join(result)
+    return _CJK_RE.sub(r'<font face="CJK">\g<0></font>', text)
 
 
 def _make_styles():
@@ -183,22 +130,19 @@ def _make_styles():
     }
 
 
-# CJK 禁则字符——不能出现在行首
-_KINSOKU_CHARS = set("，。、》」』】！？％…—～：）］”'″′〉,.;:!?%)}]'\"")
+# CJK 禁则——用正则单次替换，避免逐字符遍历
+import re as _re
+_KINSOKU_PATTERN = _re.compile(
+    r'([^\s\n ‍])([，。、》」』】！？％…—～：）］"'+"'"+r'″′〉,.;:!?%)}]'+"'"+r'"])'
+)
 
 
 def _fix_kinsoku(text: str) -> str:
     """
-    在会出现在行首的 CJK 标点前插入 ZWJ (U+200D)。
-    ZWJ 是零宽度不可见字符，阻止 reportlab 在它之后断行，
-    从而防止标点落在行首。不影响字符间距。
+    用 ‍ (ZWJ) 连接 CJK 标点与前一字，防止标点断到行首。
+    正则单次替换，O(n) 复杂度，对长文本无性能影响。
     """
-    result = []
-    for i, ch in enumerate(text):
-        if ch in _KINSOKU_CHARS and i > 0 and text[i - 1] not in (" ", "\n", "‍"):
-            result.append("‍")
-        result.append(ch)
-    return "".join(result)
+    return _KINSOKU_PATTERN.sub(r'\1‍\2', text)
 
 
 def _p(text: str, styles: dict, key: str = "body") -> Paragraph:
