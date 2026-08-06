@@ -112,39 +112,6 @@ st.caption("中远海运散货运输智能助理 · 船期查询 · 文件分析
 # ============================================================
 # 第1区：对话历史 / 欢迎框（上方）
 # ============================================================
-# 邮件暂存区（始终显示，不受历史影响）
-if st.session_state.email_vault:
-    for i, (subject, body, recipient) in enumerate(st.session_state.email_vault):
-        with st.container(border=True):
-            col1, col2 = st.columns([10, 1])
-            with col1:
-                if recipient:
-                    st.caption(f"收件人：{recipient}")
-            with col2:
-                if st.button("✕", key=f"rm_email_{i}"):
-                    st.session_state.email_vault.pop(i)
-                    st.rerun()
-            st.code(subject, language="")
-            st.code(body, language="")
-
-# PDF 生成下载按钮
-try:
-    from pdf_utils import get_pdfs
-    pdfs = get_pdfs()
-except ImportError:
-    pdfs = []
-for j, (pdf_data, pdf_name) in enumerate(pdfs):
-    st.download_button(
-        label=f"📥 下载 {pdf_name}",
-        data=pdf_data, file_name=pdf_name,
-        mime="application/pdf", type="primary",
-        key=f"pdf_dl_{j}_{st.session_state.widget_key}",
-    )
-    if not any(f["name"] == pdf_name and f["type"] == "pdf" for f in st.session_state.file_vault):
-        st.session_state.file_vault.append({
-            "name": pdf_name, "data": pdf_data, "type": "pdf",
-        })
-
 # 对话历史
 if st.session_state.history:
     for i, h in enumerate(reversed(st.session_state.history)):
@@ -168,6 +135,39 @@ else:
         "上传一份提单 PDF，问：托运人是谁？\n"
         "帮我生成一份船期确认函"
     )
+
+# PDF 下载（对话下方）
+try:
+    from pdf_utils import get_pdfs
+    pdfs = get_pdfs()
+except ImportError:
+    pdfs = []
+for j, (pdf_data, pdf_name) in enumerate(pdfs):
+    st.download_button(
+        label=f"📥 下载 {pdf_name}",
+        data=pdf_data, file_name=pdf_name,
+        mime="application/pdf", type="primary",
+        key=f"pdf_dl_{j}_{st.session_state.widget_key}",
+    )
+    if not any(f["name"] == pdf_name and f["type"] == "pdf" for f in st.session_state.file_vault):
+        st.session_state.file_vault.append({
+            "name": pdf_name, "data": pdf_data, "type": "pdf",
+        })
+
+# 邮件暂存区（对话下方）
+if st.session_state.email_vault:
+    for i, (subject, body, recipient) in enumerate(st.session_state.email_vault):
+        with st.container(border=True):
+            col1, col2 = st.columns([10, 1])
+            with col1:
+                if recipient:
+                    st.caption(f"收件人：{recipient}")
+            with col2:
+                if st.button("✕", key=f"rm_email_{i}"):
+                    st.session_state.email_vault.pop(i)
+                    st.rerun()
+            st.code(subject, language="")
+            st.code(body, language="")
 
 # 状态提示（对话区与输入框之间）
 status_placeholder = st.empty()
