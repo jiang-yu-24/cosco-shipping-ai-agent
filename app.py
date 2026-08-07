@@ -27,6 +27,21 @@ st.markdown("""
 <style>
     footer {visibility: hidden;}
     .query-input textarea { font-size: 16px !important; }
+    /* 海浪渐变背景 */
+    .stApp {
+        background: linear-gradient(180deg,
+            #e8f4f8 0%,
+            #d1ecf1 15%,
+            #c5e8f0 30%,
+            #d6eef5 45%,
+            #e2f3f8 60%,
+            #edf7fa 75%,
+            #f5fafc 100%
+        ) !important;
+    }
+    .stChatMessage, .stContainer, .stInfo, .stExpander {
+        background: rgba(255,255,255,0.7) !important;
+    }
     /* 加载动画 */
     @keyframes dot-bounce {
         0%, 80%, 100% { opacity: 0; }
