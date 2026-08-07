@@ -148,19 +148,21 @@ if st.session_state.history:
                     st.code(body, language="")
 else:
     st.markdown("欢迎使用远航助手！请在下方框内输入指令。")
-    st.caption("试试下面几种示例：")
-    cols = st.columns(3)
-    examples = [
-        "查一下西澳-青岛的船期",
-        "帮我生成几内亚最近的船期确认函",
-        "帮我根据上述确认函内容生成邮件",
-    ]
-    for i, text in enumerate(examples):
-        with cols[i]:
-            if st.button(text, key=f"ex_{i}", use_container_width=True):
-                st.session_state._fill_input = text
-                st.session_state.widget_key += 1
-                st.rerun()
+
+# 示例按钮（始终显示）
+st.caption("试试下面几种示例：")
+cols = st.columns(3)
+examples = [
+    "查一下西澳-青岛的船期",
+    "帮我生成几内亚最近的船期确认函",
+    "帮我根据上述确认函内容生成邮件",
+]
+for i, text in enumerate(examples):
+    with cols[i]:
+        if st.button(text, key=f"ex_{i}", use_container_width=True):
+            st.session_state._fill_input = text
+            st.session_state.widget_key += 1
+            st.rerun()
 
 # PDF 下载（对话下方）
 try:
