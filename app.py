@@ -146,7 +146,7 @@ if st.session_state.history:
                     st.code(body, language="")
 else:
     st.markdown("欢迎使用远航助手！请在下方框内输入指令。")
-    st.caption("点击示例直接填入：")
+    st.caption("试试下面几种示例：")
     cols = st.columns(3)
     examples = [
         "查一下西澳-青岛的船期",
