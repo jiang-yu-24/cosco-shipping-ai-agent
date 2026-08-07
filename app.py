@@ -182,7 +182,7 @@ st.divider()
 with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=True):
     user_query = st.text_area(
         "查询内容",
-        placeholder="Shift+Enter 换行，Enter 直接查询",
+        placeholder="Shift+Enter 换行，Enter 直接发送",
         label_visibility="collapsed",
         height=64,
         key=f"query_input_{st.session_state.widget_key}",
@@ -293,4 +293,4 @@ if loading_entry:
         st.rerun()
 
 elif submit and not user_query.strip():
-    status_placeholder.warning("请输入查询内容")
+    status_placeholder.warning("请输入内容")
