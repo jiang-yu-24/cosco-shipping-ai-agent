@@ -84,7 +84,7 @@ with st.sidebar:
     st.divider()
 
     st.subheader("🔧 服务能力")
-    st.caption(f"共 {len(TOOL_NAMES)} 项服务")
+    st.caption(f"共 {len(TOOL_DISPLAY_NAMES)} 项服务")
     for tool in TOOL_DESCRIPTIONS:
         func_name = tool["function"]["name"]
         if func_name not in TOOL_DISPLAY_NAMES:

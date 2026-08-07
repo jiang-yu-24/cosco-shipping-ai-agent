@@ -567,6 +567,7 @@ TOOL_NAMES: List[str] = [t["function"]["name"] for t in TOOL_DESCRIPTIONS]
 # app.py 侧边栏使用此映射展示服务能力，对用户隐藏内部函数名
 TOOL_DISPLAY_NAMES: Dict[str, str] = {
     "search_file_content": "读取文件内容",
-    "generate_document": "生成PDF文件",
+    "query_shipping_schedule": "散货船期查询",
     "compose_email": "编写邮件",
+    "generate_document": "生成PDF文件",
 }
