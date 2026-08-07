@@ -149,13 +149,13 @@ else:
     st.caption("点击示例直接填入：")
     cols = st.columns(3)
     examples = [
-        ("查一下西澳-青岛的船期", "primary"),
-        ("上传提单 PDF，问：托运人是谁？", "secondary"),
-        ("帮我生成一份船期确认函", "secondary"),
+        "查一下西澳-青岛的船期",
+        "上传提单 PDF，问：托运人是谁？",
+        "帮我生成一份船期确认函",
     ]
-    for i, (text, btype) in enumerate(examples):
+    for i, text in enumerate(examples):
         with cols[i]:
-            if st.button(text, key=f"ex_{i}", use_container_width=True, type=btype):
+            if st.button(text, key=f"ex_{i}", use_container_width=True):
                 st.session_state._fill_input = text
                 st.session_state.widget_key += 1
                 st.rerun()
