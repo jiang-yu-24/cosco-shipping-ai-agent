@@ -27,12 +27,18 @@ st.markdown("""
 <style>
     footer {visibility: hidden;}
     .query-input textarea { font-size: 16px !important; }
-    /* 海浪图片背景 */
+    /* 海浪渐变背景 */
     .stApp {
-        background: url("app/static/ocean-wave-background.jpg") center/cover no-repeat fixed !important;
+        background: linear-gradient(180deg,
+            #b8dce8 0%, #c9e4ed 8%, #d6ecf2 16%,
+            #e1f0f5 24%, #e8f4f7 32%, #edf6f9 40%,
+            #eef7f9 48%, #edf6f9 56%, #e8f4f7 64%,
+            #e1f0f5 72%, #d6ecf2 80%, #c9e4ed 88%,
+            #b8dce8 96%, #a8d4e2 100%
+        ) fixed !important;
     }
     .stChatMessage, .stContainer, .stInfo, .stExpander {
-        background: rgba(255,255,255,0.75) !important;
+        background: rgba(255,255,255,0.7) !important;
     }
     /* 加载动画 */
     @keyframes dot-bounce {
