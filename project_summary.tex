@@ -1,0 +1,258 @@
+% !TEX program = xelatex
+\documentclass[12pt,a4paper]{ctexart}
+
+% ========== 页面设置 ==========
+\usepackage[top=2.5cm, bottom=2cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage{tcolorbox}
+\usepackage{enumitem}
+\usepackage{xcolor}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    pdftitle={远航助手——中远海运散货AI Agent 项目总结},
+    pdfauthor={远航助手团队}
+}
+
+% ========== 自定义样式 ==========
+\definecolor{coscoblue}{RGB}{26,111,181}
+\newtcolorbox{featurebox}[1][]{
+    colback=blue!3, colframe=coscoblue!60,
+    fonttitle=\bfseries, title=#1
+}
+
+% ========== 正文 ==========
+\begin{document}
+
+% ---------- 封面 ----------
+\begin{titlepage}
+\centering
+\vspace*{4cm}
+
+{\Huge\bfseries 远航助手}\\[0.5cm]
+{\Large 中远海运散货 AI Agent}\\[1cm]
+
+{\large 项目技术总结报告}\\[2cm]
+
+\rule{0.6\textwidth}{1.5pt}\\[2cm]
+
+{\large
+\begin{tabular}{rl}
+项目类型 & 航运业务 AI 智能助理（MVP 脚手架） \\
+技术栈   & DeepSeek + Streamlit + Python \\
+部署平台 & Streamlit Cloud \\
+在线地址 & \url{https://cosco-bulk-agent.streamlit.app} \\
+编制日期 & 2026年8月7日
+\end{tabular}
+}
+
+\vfill
+{\normalsize 央国企数字化项目管理场景}
+\end{titlepage}
+
+% ---------- 目录 ----------
+\tableofcontents
+\newpage
+
+% ============================================================
+\section{项目概述}
+% ============================================================
+
+远航助手是一个面向中远海运散货运输业务的 AI Agent 系统，基于 DeepSeek 大语言模型，实现了完整的 \textbf{ReAct（Reasoning + Acting）+ Reflect（反思）} 闭环架构。系统以 Streamlit 构建 Web 前端，部署于 Streamlit Cloud，支持 macOS 和 Windows 双平台本地运行。
+
+项目定位为央国企数字化项目管理的智能辅助工具，涵盖航运业务查询、文件智能分析、规范文档生成、邮件编写、数据质量控制等核心能力。
+
+% ============================================================
+\section{技术架构}
+% ============================================================
+
+\subsection{核心引擎——ReAct + Reflect 循环}
+
+Agent 核心采用自主实现的 ReAct 循环（约 200 行 Python），未使用 LangChain 等框架，关键流程为：
+
+\begin{enumerate}[label=步骤\arabic*：, leftmargin=*]
+    \item \textbf{Reason（推理）}：将用户问题 + 工具列表发送给 DeepSeek 大模型，模型决定是否需要调用工具
+    \item \textbf{Act（执行）}：通过 TOOL\_MAPPING 字典查找对应 Python 函数并执行
+    \item \textbf{Observe（观察）}：工具执行结果以 Tool Role 消息追加回上下文
+    \item \textbf{Reflect（反思）}：每轮工具调用后强制模型进行自我审视——数据是否完整？是否需要调整参数？信息是否足够回答用户？
+    \item \textbf{Decide（决策）}：模型根据反思结果决定继续调用工具或生成最终回答
+\end{enumerate}
+
+\subsection{系统架构图}
+
+\begin{verbatim}
+┌─────────────────────────────────────────┐
+│        Streamlit 前端 (app.py)           │
+│    DeepSeek 风格对话流 + 侧边栏管理       │
+└───────────────┬─────────────────────────┘
+                │
+                ▼
+┌─────────────────────────────────────────┐
+│      Agent 核心引擎 (agent_core.py)       │
+│                                          │
+│  Reason ──▶ Act ──▶ Observe              │
+│    ▲                     │               │
+│    └── Reflect ◀─────────┘               │
+└───────────────┬─────────────────────────┘
+                │
+    ┌───────────┼───────────┐
+    ▼           ▼           ▼
+  tools.py  pdf_utils.py  data/
+  (工具函数)  (PDF引擎)   (船期数据)
+\end{verbatim}
+
+% ============================================================
+\section{功能模块}
+% ============================================================
+
+\subsection{侧边栏服务能力（6项）}
+
+\begin{featurebox}[读取文件内容]
+支持上传 PDF、Excel、CSV、TXT 文件，Agent 可基于文件内容进行智能问答。内部通过关键词检索（search\_file\_content）定位文件中相关段落。
+\end{featurebox}
+
+\begin{featurebox}[散货船期查询]
+内置 100+ 条真实航线数据（JSON 格式），覆盖澳大利亚、南美、东南亚、北美、西非、南非、远东 7 大区域，支持铁矿石、煤炭、大豆、铝土矿、锰矿等货种。采用关键词分词 + 打分排序 + 模糊匹配算法进行智能检索。
+\end{featurebox}
+
+\begin{featurebox}[编写邮件]
+Agent 自动生成邮件主题和正文，输出为可一键复制的代码块格式。支持一次生成多封邮件，邮件框内嵌在对应的助手回复下方，不随新查询消失。
+\end{featurebox}
+
+\begin{featurebox}[生成 PDF 文件]
+基于 reportlab 引擎，支持 5 种文档类型自动匹配：
+\begin{itemize}[leftmargin=*]
+    \item \textbf{schedule}：船期确认函（红头公文格式）
+    \item \textbf{report}：航运分析报告（红头公文格式）
+    \item \textbf{official}：央企通用公文（通知、函件等）
+    \item \textbf{generic}：简洁排版（说明书、总结、指南等）
+    \item \textbf{proposal}：数字化项目方案（封面 + 十章分章节正文 + 签审页）
+\end{itemize}
+中文渲染采用 DroidSansFallback.ttf 开源字体，拉丁/数字用 Helvetica，通过 XML 字体标签实现段内混排。
+\end{featurebox}
+
+\begin{featurebox}[数据质量控制]
+对上传的数据文件进行四维分析：
+\begin{itemize}[leftmargin=*]
+    \item \textbf{完整性检测}：各列缺失值统计及占比
+    \item \textbf{重复行检测}：全字段匹配去重
+    \item \textbf{异常值检测}：数值型列的 3$\sigma$ 离群点
+    \item \textbf{敏感信息识别}：手机号、身份证号、邮箱、银行卡号的自动识别与统计
+\end{itemize}
+\end{featurebox}
+
+\begin{featurebox}[会议纪要生成]
+输入会议信息（主题、内容、参会人员、时间地点），自动生成央企公文格式的会议纪要 PDF。
+\end{featurebox}
+
+\subsection{隐藏工具（Agent 内部可用）}
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{实时时间查询}：获取当前北京时间（东八区）
+    \item \textbf{文件内容搜索}：search\_file\_content，在已上传文件中按关键词检索
+\end{itemize}
+
+% ============================================================
+\section{UI 设计特点}
+% ============================================================
+
+\begin{itemize}[leftmargin=*]
+    \item \textbf{DeepSeek 风格对话流}：全部历史 Q\&A 在主区域按时间线展示，使用 Streamlit chat\_message 组件
+    \item \textbf{左侧边栏管理}：服务能力展示 + 文件暂存区 + 历史记录（折叠展开）
+    \item \textbf{三阶段渐进渲染}：用户提交 → 即时展示提问框 + 加载动画 → Agent 完成后替换为正式回答
+    \item \textbf{Enter 直接发送}：使用 st.form 实现表单内 Enter 键触发提交
+    \item \textbf{示例按钮}：3 个可点击示例卡片，点击直接填入输入框
+    \item \textbf{文件暂存区}：侧边栏集中展示上传文件和生成 PDF，一键下载
+\end{itemize}
+
+% ============================================================
+\section{项目结构}
+% ============================================================
+
+\begin{verbatim}
+my_agent/
+├── app.py                 # Streamlit 前端（约 270 行）
+├── agent_core.py          # ReAct + Reflect 核心引擎（约 230 行）
+├── tools.py               # 工具函数 + 注册表（约 760 行）
+├── pdf_utils.py           # reportlab PDF 引擎（约 420 行）
+├── data/
+│   └── shipping_schedules.json  # 100+ 条船期数据
+├── fonts/
+│   └── DroidSansFallback.ttf    # 开源 CJK 字体（3.8MB）
+├── requirements.txt       # Python 依赖
+├── packages.txt           # Cloud 系统依赖（CJK 字体）
+├── git_push.sh            # 一键提交推送脚本
+├── setup_mac.sh / setup_windows.bat
+└── .env.example
+\end{verbatim}
+
+% ============================================================
+\section{技术栈}
+% ============================================================
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{层级}   & \textbf{技术选型}                 & \textbf{说明}                       \\ \hline
+大模型 API      & DeepSeek (via OpenAI SDK)        & base\_url = https://api.deepseek.com \\ \hline
+前端框架        & Streamlit $\ge$ 1.35             & 纯 Python，无前端代码                  \\ \hline
+PDF 生成        & reportlab $\ge$ 4.0              & TTFont + Paragraph 排版              \\ \hline
+文件解析        & PyPDF2 + openpyxl                & PDF/Excel/CSV/TXT 多格式支持          \\ \hline
+数据存储        & JSON 文件                         & 100+ 条船期数据                      \\ \hline
+CJK 字体        & DroidSansFallback.ttf (Apache 2.0) & 开源中文字体，项目自带                \\ \hline
+环境管理        & python-dotenv                     & .env + Streamlit Secrets             \\ \hline
+部署平台        & Streamlit Cloud                   & 免费托管，自动 GitHub 同步             \\ \hline
+\end{tabular}
+\caption{技术栈明细}
+\end{table}
+
+% ============================================================
+\section{核心设计决策}
+% ============================================================
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{不依赖 Agent 框架}：自主实现 ReAct 循环，避免 LangChain 等框架的抽象开销和调试复杂性。培训答辩时可展示对 Agent 原理的深入理解。
+    \item \textbf{PDF 引擎选型}：历经 fpdf2（CJK 不兼容）→ WeasyPrint（Cloud 部署失败）→ 最终选用 reportlab + 自带字体 + XML 字体标签混排方案，是唯一在 Streamlit Cloud 上稳定运行中文 PDF 的方案。
+    \item \textbf{三阶段渲染}：通过 session\_state 标志位实现渐进式 UI 更新，让用户提交后立即看到反馈，而非白屏等待。
+    \item \textbf{工具队列化}：PDF 和邮件生成采用队列存储，支持一次请求生成多份文档/多封邮件。
+    \item \textbf{防御性 Session 初始化}：关键 session\_state 变量独立初始化检查，避免旧会话因新增字段而崩溃。
+\end{enumerate}
+
+% ============================================================
+\section{演示场景}
+% ============================================================
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|p{6cm}|}
+\hline
+\textbf{序号} & \textbf{场景}              & \textbf{输入示例}                              \\ \hline
+1  & 船期查询     & 查一下西澳-青岛的铁矿石船期                      \\ \hline
+2  & 文件分析     & 上传提单 PDF → 这份提单的托运人是谁？            \\ \hline
+3  & PDF 生成     & 帮我生成西澳-青岛航线的船期确认函                 \\ \hline
+4  & 邮件编写     & 写一封邮件通知客户船期延迟                        \\ \hline
+5  & 项目方案     & 帮我写一份散货船期智能调度平台项目方案             \\ \hline
+6  & 数据质控     & 上传船期表 → 帮我检查这份数据的数据质量            \\ \hline
+7  & 会议纪要     & 生成航运数字化项目启动会会议纪要                   \\ \hline
+8  & 通用文档     & 帮我写一份新员工 Agent 开发手册                   \\ \hline
+\end{tabular}
+\caption{培训演示场景示例}
+\end{table}
+
+% ============================================================
+\section{后续规划}
+% ============================================================
+
+\begin{itemize}[leftmargin=*]
+    \item 接入真实企业数据中台 API，替换模拟船期数据
+    \item 增加合同/提单 OCR 解析能力（PaddleOCR 或 Tesseract）
+    \item 引入 RAG（检索增强生成）能力，接入企业内部知识库
+    \item 探索流式输出（Streaming），降低用户感知延迟
+    \item 增加用户身份认证与多用户会话隔离
+\end{itemize}
+
+\end{document}
