@@ -147,11 +147,12 @@ if st.session_state.history:
 else:
     st.markdown("欢迎使用远航助手！请在下方框内输入指令。")
     st.caption("试试下面几种示例：")
-    cols = st.columns(3)
+    cols = st.columns(4)
     examples = [
         "查一下西澳-青岛的船期",
-        "上传提单 PDF，问：托运人是谁？",
-        "帮我生成一份船期确认函",
+        "帮我分析上传的文件",
+        "帮我根据提单内容生成邮件",
+        "帮我生成几内亚最近的船期确认函",
     ]
     for i, text in enumerate(examples):
         with cols[i]:
