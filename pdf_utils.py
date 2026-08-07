@@ -248,7 +248,7 @@ def generate_schedule_confirmation(
     return _build("船 期 确 认 函", doc_no, elements, consignee)
 
 
-def generate_shipping_report(title: str, content: str, author: str = "远航助手") -> bytes:
+def generate_shipping_report(title: str, content: str, author: str = "散运助手") -> bytes:
     _init_fonts()
     styles = _make_styles()
     now = datetime.now(_CST)

@@ -1,5 +1,5 @@
 """
-Streamlit 前端界面 — 中远海运散货 AI 助理「远航助手」
+Streamlit 前端界面 — 中远海运散货 AI 助理「散运助手」
 """
 
 import os
@@ -16,7 +16,7 @@ from tools import (
 from agent_core import run_agent
 
 st.set_page_config(
-    page_title="远航助手 - 中远海运散货运输智能助理",
+    page_title="散运助手 - 中远海运散货运输智能助理",
     page_icon="🚢",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -27,20 +27,12 @@ st.markdown("""
 <style>
     footer {visibility: hidden;}
     .query-input textarea { font-size: 16px !important; }
-    /* 海浪渐变背景 */
+    /* 海浪图片背景 */
     .stApp {
-        background: linear-gradient(180deg,
-            #e8f4f8 0%,
-            #d1ecf1 15%,
-            #c5e8f0 30%,
-            #d6eef5 45%,
-            #e2f3f8 60%,
-            #edf7fa 75%,
-            #f5fafc 100%
-        ) !important;
+        background: url("app/static/ocean-wave-background.jpg") center/cover no-repeat fixed !important;
     }
     .stChatMessage, .stContainer, .stInfo, .stExpander {
-        background: rgba(255,255,255,0.7) !important;
+        background: rgba(255,255,255,0.75) !important;
     }
     /* 加载动画 */
     @keyframes dot-bounce {
@@ -75,7 +67,7 @@ if "file_vault" not in st.session_state:
 # 左侧边栏
 # ============================================================
 with st.sidebar:
-    st.markdown("# 🚢 远航助手")
+    st.markdown("# 🚢 散运助手")
     st.markdown("*智能航运服务平台*")
     st.divider()
 
@@ -120,7 +112,7 @@ with st.sidebar:
 # ============================================================
 # 右侧主区域 — 标题 + 状态占位
 # ============================================================
-st.title("🚢 远航助手")
+st.title("🚢 散运助手")
 st.caption("中远海运散货运输智能助理 · 船期查询 · 文件分析 · 邮件生成 · 文件生成")
 
 # ============================================================
@@ -162,7 +154,7 @@ if st.session_state.history:
                     st.code(subject, language="")
                     st.code(body, language="")
 else:
-    st.markdown("欢迎使用远航助手！请在下方框内输入指令。")
+    st.markdown("欢迎使用散运助手！请在下方框内输入指令。")
 
 # PDF 下载（对话与示例之间）
 try:

@@ -74,7 +74,7 @@ def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = No
     system_prompt = {
         "role": "system",
         "content": (
-            "你是「远航助手」，央国企数字化项目 AI 助理，擅长航运业务、数据分析、文档生成。"
+            "你是「散运助手」，央国企数字化项目 AI 助理，擅长航运业务、数据分析、文档生成。"
             ""
             "【数据质量分析】用户上传数据文件后要求检查质量，调用 data_quality_control。"
             "该工具自动检测缺失值、重复行、异常值、敏感信息，无需额外参数。"

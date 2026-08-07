@@ -1,4 +1,4 @@
-# 远航助手 — 中远海运散货 AI Agent
+# 散运助手 — 中远海运散货 AI Agent
 
 基于 **DeepSeek + Streamlit** 构建的航运业务 AI 智能助理，实现完整的 **ReAct（推理-执行-观察-反思）** Agent 闭环。
 
