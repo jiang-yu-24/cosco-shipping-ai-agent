@@ -149,22 +149,7 @@ if st.session_state.history:
 else:
     st.markdown("欢迎使用远航助手！请在下方框内输入指令。")
 
-# 示例按钮（始终显示）
-st.caption("推荐依次输入下面几个示例：")
-cols = st.columns(3)
-examples = [
-    "查一下西澳-青岛的船期",
-    "帮我生成几内亚最近的船期确认函",
-    "帮我根据上述确认函内容生成邮件",
-]
-for i, text in enumerate(examples):
-    with cols[i]:
-        if st.button(text, key=f"ex_{i}", use_container_width=True):
-            st.session_state._fill_input = text
-            st.session_state.widget_key += 1
-            st.rerun()
-
-# PDF 下载（对话下方）
+# PDF 下载（对话与示例之间）
 try:
     from pdf_utils import get_pdfs
     pdfs = get_pdfs()
@@ -181,6 +166,21 @@ for j, (pdf_data, pdf_name) in enumerate(pdfs):
         st.session_state.file_vault.append({
             "name": pdf_name, "data": pdf_data, "type": "pdf",
         })
+
+# 示例按钮（始终显示）
+st.caption("推荐依次输入下面几个示例：")
+cols = st.columns(3)
+examples = [
+    "查一下西澳-青岛的船期",
+    "帮我生成几内亚最近的船期确认函",
+    "帮我根据上述确认函内容生成邮件",
+]
+for i, text in enumerate(examples):
+    with cols[i]:
+        if st.button(text, key=f"ex_{i}", use_container_width=True):
+            st.session_state._fill_input = text
+            st.session_state.widget_key += 1
+            st.rerun()
 
 # 状态提示（对话区与输入框之间）
 status_placeholder = st.empty()
