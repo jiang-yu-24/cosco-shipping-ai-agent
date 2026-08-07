@@ -49,7 +49,7 @@ my_agent/
 
 ---
 
-## MacBook 快速启动
+## Mac 快速启动
 
 ```bash
 cd Agent4cosco/my_agent

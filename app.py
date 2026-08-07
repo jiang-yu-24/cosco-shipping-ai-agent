@@ -39,8 +39,6 @@ st.markdown("""
     .loading-dots span:nth-child(1) { animation-delay: 0s; }
     .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
     .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-    /* 示例按钮统一浅绿底色 */
-    #example-cards button { background: #e8f5e9 !important; border-color: #a5d6a7 !important; color: #2e7d32 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -149,7 +147,6 @@ if st.session_state.history:
 else:
     st.markdown("欢迎使用远航助手！请在下方框内输入指令。")
     st.caption("点击示例直接填入：")
-    st.markdown('<div id="example-cards">', unsafe_allow_html=True)
     cols = st.columns(3)
     examples = [
         ("查一下西澳-青岛的船期", "primary"),
@@ -162,7 +159,6 @@ else:
                 st.session_state._fill_input = text
                 st.session_state.widget_key += 1
                 st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
 # PDF 下载（对话下方）
 try:
