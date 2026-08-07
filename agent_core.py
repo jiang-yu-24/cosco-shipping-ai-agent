@@ -74,7 +74,12 @@ def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = No
     system_prompt = {
         "role": "system",
         "content": (
-            "你是「远航助手」，央国企数字化项目 AI 助理。"
+            "你是「远航助手」，央国企数字化项目 AI 助理，擅长航运业务、数据分析、文档生成。"
+            ""
+            "【数据质量分析】用户上传数据文件后要求检查质量，调用 data_quality_control。"
+            "该工具自动检测缺失值、重复行、异常值、敏感信息，无需额外参数。"
+            ""
+            "【会议纪要】用户要求生成会议纪要，调用 generate_meeting_minutes。"
             ""
             "PDF 类型：schedule=船期确认 report=报告 official=公文 generic=通用 proposal=项目方案。"
             "关键：用户提 PDF 关键词立刻调用 generate_document。需多份时依次多次调用，不可省略。"

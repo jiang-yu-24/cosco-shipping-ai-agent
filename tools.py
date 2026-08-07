@@ -392,6 +392,194 @@ def get_emails() -> list:
     return result
 
 
+def data_quality_control() -> str:
+    """
+    对用户已上传的文件进行数据质量控制分析：
+    1. 完整性检测：各列缺失值统计
+    2. 重复行检测
+    3. 异常值检测：数值列的离群点（3σ原则）
+    4. 敏感信息识别：手机号、身份证号、邮箱、银行卡号
+
+    调用后返回结构化质量报告。如无上传文件则提示先上传。
+    """
+    import re
+    content, filename = get_uploaded_file_info()
+
+    if not content:
+        return "⚠️ 当前没有已上传的文件。请先在左侧或输入框下方上传一份数据文件（Excel / CSV）。"
+
+    lines = content.strip().split("\n")
+    if len(lines) < 2:
+        return "⚠️ 文件内容不足，无法进行数据质量分析。请上传包含表头和数据行的表格文件。"
+
+    # 解析表头和数据行
+    header_line = lines[0]
+    delimiter = "|" if "|" in header_line else ","
+    headers = [h.strip() for h in header_line.split(delimiter) if h.strip()]
+    if not headers:
+        # 尝试空格/制表符
+        import re as _re2
+        headers = _re2.split(r'\s{2,}|\t', header_line)
+        headers = [h.strip() for h in headers if h.strip()]
+        delimiter = None  # 后续用正则解析
+
+    data_rows = []
+    for line in lines[1:]:
+        line = line.strip()
+        if not line:
+            continue
+        if delimiter:
+            cells = [c.strip() for c in line.split(delimiter)]
+        else:
+            cells = [c.strip() for c in _re2.split(r'\s{2,}|\t', line)]
+        # 对齐列数
+        while len(cells) < len(headers):
+            cells.append("")
+        cells = cells[:len(headers)]
+        data_rows.append(cells)
+
+    total = len(data_rows)
+    if total == 0:
+        return "⚠️ 未检测到有效数据行。"
+
+    report = f"📊 数据质量控制报告 — {filename}\n"
+    report += f"列数：{len(headers)} | 行数：{total}\n\n"
+
+    # 1. 完整性分析
+    report += "【一、完整性检测】\n"
+    completeness_issues = []
+    for ci, h in enumerate(headers):
+        missing = sum(1 for r in data_rows if ci >= len(r) or not r[ci].strip())
+        if missing > 0:
+            report += f"  • {h}：{missing}/{total} 缺失 ({missing*100/total:.1f}%)\n"
+            completeness_issues.append(h)
+    if not completeness_issues:
+        report += "  ✅ 所有字段数据完整\n"
+    report += "\n"
+
+    # 2. 重复行检测
+    report += "【二、重复行检测】\n"
+    seen = set()
+    dupes = 0
+    for r in data_rows:
+        key = "|".join(r)
+        if key in seen:
+            dupes += 1
+        else:
+            seen.add(key)
+    if dupes > 0:
+        report += f"  ⚠️ 发现 {dupes} 行重复数据 ({dupes*100/total:.1f}%)\n"
+    else:
+        report += "  ✅ 未发现重复行\n"
+    report += "\n"
+
+    # 3. 异常值检测（数值列）
+    report += "【三、异常值检测（3σ原则）】\n"
+    has_numeric = False
+    for ci, h in enumerate(headers):
+        vals = []
+        for r in data_rows:
+            try:
+                v = float(r[ci].strip().replace(",", "").replace("，", ""))
+                vals.append(v)
+            except (ValueError, IndexError):
+                pass
+        if len(vals) < 3:
+            continue
+        has_numeric = True
+        mean = sum(vals) / len(vals)
+        std = (sum((v - mean)**2 for v in vals) / len(vals)) ** 0.5
+        if std == 0:
+            continue
+        outliers = [v for v in vals if abs(v - mean) > 3 * std]
+        if outliers:
+            report += f"  • {h}：发现 {len(outliers)} 个异常值 "
+            report += f"（均值={mean:.1f}，标准差={std:.1f}）\n"
+            report += f"    异常值：{outliers[:5]}{'...' if len(outliers) > 5 else ''}\n"
+    if not has_numeric:
+        report += "  ℹ️ 未检测到数值型列，跳过异常值分析\n"
+    else:
+        # 检查是否有列没有异常值报告
+        pass
+    report += "\n"
+
+    # 4. 敏感信息识别
+    report += "【四、敏感信息识别】\n"
+    patterns = {
+        "手机号": r'1[3-9]\d{9}',
+        "身份证号": r'\d{17}[\dXx]',
+        "邮箱": r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
+        "银行卡号": r'\d{16,19}',
+    }
+    found_any = False
+    for label, pat in patterns.items():
+        all_matches = []
+        for r in data_rows:
+            for c in r:
+                matches = re.findall(pat, c)
+                all_matches.extend(matches)
+        if all_matches:
+            found_any = True
+            unique = list(set(all_matches))[:5]
+            report += f"  ⚠️ {label}：发现 {len(all_matches)} 处"
+            report += f"（如 {', '.join(unique)}）\n"
+    if not found_any:
+        report += "  ✅ 未检测到敏感信息\n"
+    report += "\n"
+
+    # 5. 数据脱敏（可选提示）
+    report += "【五、建议】\n"
+    if completeness_issues or dupes > 0 or found_any:
+        report += "  • 建议对上述问题进行数据清洗后再用于分析\n"
+    if found_any:
+        report += "  • 如需生成脱敏后的文件，请告知\n"
+    if not completeness_issues and dupes == 0 and not found_any:
+        report += "  ✅ 数据质量良好，可直接用于分析\n"
+
+    return report
+
+
+def generate_meeting_minutes(title: str, content: str,
+                             attendees: str = "", date: str = "",
+                             location: str = "") -> str:
+    """
+    生成会议纪要 PDF（央企公文格式）。
+
+    参数:
+        title: 会议名称
+        content: 会议内容要点（换行分隔各议题）
+        attendees: 参会人员
+        date: 会议日期
+        location: 会议地点
+    """
+    from pdf_utils import generate_official_document, store_pdf
+
+    now = datetime.now(_CST)
+    ts = now.strftime("%Y%m%d_%H%M%S")
+    meeting_date = date or now.strftime("%Y年%m月%d日")
+
+    # 按央企会议纪要格式组织正文
+    body = f"会议时间：{meeting_date}\n"
+    if location:
+        body += f"会议地点：{location}\n"
+    if attendees:
+        body += f"参会人员：{attendees}\n"
+    body += f"\n会议内容：\n{content}"
+
+    pdf_bytes = generate_official_document(
+        title=f"{title} 会议纪要",
+        content=body,
+        doc_type="纪要",
+    )
+
+    filename = f"会议纪要_{title}_{ts}.pdf"
+    store_pdf(pdf_bytes, filename)
+    return (
+        f"✅ 会议纪要 PDF 已生成：{filename}（{len(pdf_bytes) / 1024:.1f} KB）\n"
+        f"请点击页面上的「下载 PDF」按钮获取文件。"
+    )
+
+
 # ============================================================
 # 工具注册表 — 供 agent_core.py 和 app.py 使用
 # ============================================================
@@ -543,6 +731,59 @@ TOOL_DESCRIPTIONS: List[Dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "data_quality_control",
+            "description": (
+                "对已上传的数据文件进行质量控制分析，包括："
+                "完整性检测（缺失值统计）、重复行检测、异常值检测（3σ原则）、"
+                "敏感信息识别（手机号/身份证/邮箱/银行卡）。"
+                "当用户上传了数据文件并要求检查数据质量、数据清洗、脱敏时调用。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_meeting_minutes",
+            "description": (
+                "生成央企标准格式的会议纪要 PDF。"
+                "当用户要求「生成会议纪要」「写一份会议纪要」时调用。"
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "title": {
+                        "type": "string",
+                        "description": "会议名称",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "会议内容要点（换行分隔各议题）",
+                    },
+                    "attendees": {
+                        "type": "string",
+                        "description": "参会人员",
+                    },
+                    "date": {
+                        "type": "string",
+                        "description": "会议日期（格式：2026年8月7日）",
+                    },
+                    "location": {
+                        "type": "string",
+                        "description": "会议地点",
+                    },
+                },
+                "required": ["title", "content"],
+            },
+        },
+    },
 ]
 
 # TOOL_MAPPING: 工具名 -> 实际Python函数的映射字典
@@ -553,6 +794,8 @@ TOOL_MAPPING: Dict[str, Any] = {
     "search_file_content": search_file_content,
     "generate_document": generate_document,
     "compose_email": compose_email,
+    "data_quality_control": data_quality_control,
+    "generate_meeting_minutes": generate_meeting_minutes,
 }
 
 # TOOL_NAMES: 工具名称列表，供 app.py 侧边栏展示
@@ -565,4 +808,6 @@ TOOL_DISPLAY_NAMES: Dict[str, str] = {
     "query_shipping_schedule": "散货船期查询",
     "compose_email": "编写邮件",
     "generate_document": "生成PDF文件",
+    "data_quality_control": "数据质量控制",
+    "generate_meeting_minutes": "会议纪要生成",
 }
