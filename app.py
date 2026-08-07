@@ -150,7 +150,7 @@ else:
     st.markdown("欢迎使用远航助手！请在下方框内输入指令。")
 
 # 示例按钮（始终显示）
-st.caption("试试下面几种示例：")
+st.caption("推荐依次输入下面几个示例：")
 cols = st.columns(3)
 examples = [
     "查一下西澳-青岛的船期",
