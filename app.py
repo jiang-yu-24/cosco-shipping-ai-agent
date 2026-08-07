@@ -146,13 +146,27 @@ if st.session_state.history:
                     st.code(subject, language="")
                     st.code(body, language="")
 else:
-    st.info(
-        "欢迎使用远航助手！请在下方框内输入指令。\n\n"
-        "试试这些：\n"
-        "查一下西澳-青岛的船期\n"
-        "上传一份提单 PDF，问：托运人是谁？\n"
-        "帮我生成一份船期确认函"
-    )
+    st.markdown("欢迎使用远航助手！请在下方框内输入指令。")
+    st.caption("试试这些（点击直接填入）：")
+    cols = st.columns(3)
+    examples = [
+        ("查一下西澳-青岛的船期", "#e3f2fd", "#1565c0"),
+        ("上传提单 PDF，问：托运人是谁？", "#fce4ec", "#c62828"),
+        ("帮我生成一份船期确认函", "#e8f5e9", "#2e7d32"),
+    ]
+    for i, (text, bg, color) in enumerate(examples):
+        with cols[i]:
+            st.markdown(
+                f'<div style="background:{bg};color:{color};padding:10px 14px;'
+                f'border-radius:10px;font-size:13px;text-align:center;'
+                f'cursor:pointer;min-height:50px;display:flex;align-items:center;'
+                f'justify-content:center;">{text}</div>',
+                unsafe_allow_html=True,
+            )
+            if st.button("填入", key=f"ex_{i}"):
+                st.session_state._fill_input = text
+                st.session_state.widget_key += 1
+                st.rerun()
 
 # PDF 下载（对话下方）
 try:
@@ -180,8 +194,10 @@ st.divider()
 # 第2区：查询栏（下方）
 # ============================================================
 with st.form(key=f"query_form_{st.session_state.widget_key}", clear_on_submit=True):
+    fill_val = st.session_state.pop("_fill_input", "") if st.session_state.get("_fill_input") else ""
     user_query = st.text_area(
         "查询内容",
+        value=fill_val,
         placeholder="Shift+Enter 换行，Enter 直接发送",
         label_visibility="collapsed",
         height=64,
