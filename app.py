@@ -27,10 +27,6 @@ st.markdown("""
 <style>
     footer {visibility: hidden;}
     .query-input textarea { font-size: 16px !important; }
-    /* 海浪图片背景 */
-    .stApp {
-    }
-    
     /* 加载动画 */
     @keyframes dot-bounce {
         0%, 80%, 100% { opacity: 0; }
@@ -46,14 +42,6 @@ st.markdown("""
     /* 示例按钮不换行 */
     button { white-space: nowrap !important; }
     /* 加载启动画面：海浪图铺满html */
-    html, body {
-        min-height: 100vh !important;
-    }
-    /* 内容区半透明白底覆盖 */
-    .stApp {
-        background: rgba(255,255,255,0.85) !important;
-    }
-    
 </style>
 """, unsafe_allow_html=True)
 
