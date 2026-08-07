@@ -39,10 +39,10 @@ st.markdown("""
     .loading-dots span:nth-child(1) { animation-delay: 0s; }
     .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
     .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-    /* 示例按钮差异化底色 */
-    #example-cards button:nth-child(1) { background: #1565c0 !important; border-color: #0d47a1 !important; color: #fff !important; }
-    #example-cards button:nth-child(2) { background: #c62828 !important; border-color: #b71c1c !important; color: #fff !important; }
-    #example-cards button:nth-child(3) { background: #2e7d32 !important; border-color: #1b5e20 !important; color: #fff !important; }
+    /* 示例按钮差异化底色：定位到三列各自的按钮 */
+    #example-cards [data-testid="column"]:nth-child(1) button { background: #1565c0 !important; border-color: #0d47a1 !important; color: #fff !important; }
+    #example-cards [data-testid="column"]:nth-child(2) button { background: #c62828 !important; border-color: #b71c1c !important; color: #fff !important; }
+    #example-cards [data-testid="column"]:nth-child(3) button { background: #2e7d32 !important; border-color: #1b5e20 !important; color: #fff !important; }
 </style>
 """, unsafe_allow_html=True)
 
