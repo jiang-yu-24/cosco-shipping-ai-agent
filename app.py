@@ -27,19 +27,28 @@ st.markdown("""
 <style>
     footer {visibility: hidden;}
     .query-input textarea { font-size: 16px !important; }
-    /* 加载动画：三个点依次跳动 */
+    /* 加载动画 */
     @keyframes dot-bounce {
         0%, 80%, 100% { opacity: 0; }
         40% { opacity: 1; }
     }
     .loading-dots span {
         animation: dot-bounce 1.4s infinite;
-        font-size: 20px;
-        font-weight: bold;
+        font-size: 20px; font-weight: bold;
     }
     .loading-dots span:nth-child(1) { animation-delay: 0s; }
     .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
     .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+    /* 示例按钮差异化底色 */
+    div[data-testid="stHorizontalBlock"] button[kind="primary"] {
+        background: #1565c0 !important; border-color: #1565c0 !important;
+    }
+    div[data-testid="stHorizontalBlock"] button[kind="secondary"]:nth-of-type(1) {
+        background: #c62828 !important; border-color: #b71c1c !important; color: #fff !important;
+    }
+    div[data-testid="stHorizontalBlock"] button[kind="secondary"]:nth-of-type(2) {
+        background: #2e7d32 !important; border-color: #1b5e20 !important; color: #fff !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
