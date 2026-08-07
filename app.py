@@ -40,15 +40,9 @@ st.markdown("""
     .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
     .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
     /* 示例按钮差异化底色 */
-    div[data-testid="stHorizontalBlock"] button[kind="primary"] {
-        background: #1565c0 !important; border-color: #1565c0 !important;
-    }
-    div[data-testid="stHorizontalBlock"] button[kind="secondary"]:nth-of-type(1) {
-        background: #c62828 !important; border-color: #b71c1c !important; color: #fff !important;
-    }
-    div[data-testid="stHorizontalBlock"] button[kind="secondary"]:nth-of-type(2) {
-        background: #2e7d32 !important; border-color: #1b5e20 !important; color: #fff !important;
-    }
+    #example-cards button:nth-child(1) { background: #1565c0 !important; border-color: #0d47a1 !important; color: #fff !important; }
+    #example-cards button:nth-child(2) { background: #c62828 !important; border-color: #b71c1c !important; color: #fff !important; }
+    #example-cards button:nth-child(3) { background: #2e7d32 !important; border-color: #1b5e20 !important; color: #fff !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -157,6 +151,7 @@ if st.session_state.history:
 else:
     st.markdown("欢迎使用远航助手！请在下方框内输入指令。")
     st.caption("点击示例直接填入：")
+    st.markdown('<div id="example-cards">', unsafe_allow_html=True)
     cols = st.columns(3)
     examples = [
         ("查一下西澳-青岛的船期", "primary"),
@@ -169,6 +164,7 @@ else:
                 st.session_state._fill_input = text
                 st.session_state.widget_key += 1
                 st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # PDF 下载（对话下方）
 try:
