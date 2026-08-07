@@ -147,23 +147,16 @@ if st.session_state.history:
                     st.code(body, language="")
 else:
     st.markdown("欢迎使用远航助手！请在下方框内输入指令。")
-    st.caption("试试这些（点击直接填入）：")
+    st.caption("点击示例直接填入：")
     cols = st.columns(3)
     examples = [
-        ("查一下西澳-青岛的船期", "#e3f2fd", "#1565c0"),
-        ("上传提单 PDF，问：托运人是谁？", "#fce4ec", "#c62828"),
-        ("帮我生成一份船期确认函", "#e8f5e9", "#2e7d32"),
+        ("查一下西澳-青岛的船期", "primary"),
+        ("上传提单 PDF，问：托运人是谁？", "secondary"),
+        ("帮我生成一份船期确认函", "secondary"),
     ]
-    for i, (text, bg, color) in enumerate(examples):
+    for i, (text, btype) in enumerate(examples):
         with cols[i]:
-            st.markdown(
-                f'<div style="background:{bg};color:{color};padding:10px 14px;'
-                f'border-radius:10px;font-size:13px;text-align:center;'
-                f'cursor:pointer;min-height:50px;display:flex;align-items:center;'
-                f'justify-content:center;">{text}</div>',
-                unsafe_allow_html=True,
-            )
-            if st.button("填入", key=f"ex_{i}"):
+            if st.button(text, key=f"ex_{i}", use_container_width=True, type=btype):
                 st.session_state._fill_input = text
                 st.session_state.widget_key += 1
                 st.rerun()
