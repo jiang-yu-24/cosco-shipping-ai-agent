@@ -39,6 +39,8 @@ st.markdown("""
     .loading-dots span:nth-child(1) { animation-delay: 0s; }
     .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
     .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+    /* 示例按钮不换行 */
+    button { white-space: nowrap !important; }
 </style>
 """, unsafe_allow_html=True)
 
