@@ -173,7 +173,7 @@ st.caption("推荐依次输入下面几个示例：")
 cols = st.columns(3)
 examples = [
     "查一下西澳-青岛的船期",
-    "帮我生成几内亚最近的船期确认函",
+    "帮我生成几内亚最近五班船期确认函",
     "帮我根据上述确认函内容生成邮件",
 ]
 for i, text in enumerate(examples):
