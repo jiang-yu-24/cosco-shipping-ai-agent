@@ -305,8 +305,9 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
     global _pdf_counter
     _pdf_counter += 1
 
-    now = datetime.now(_CST)
-    ts = now.strftime(f"%Y%m%d_%H%M%S_{_pdf_counter:03d}")
+    global _pdf_counter
+    _pdf_counter += 1
+    suffix = f"_{_pdf_counter}" if _pdf_counter > 1 else ""
 
     try:
         if doc_type == "schedule":
@@ -319,14 +320,14 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
                 consignor=consignor or "待填写",
                 consignee=consignee or "待填写",
             )
-            filename = f"{title or '船期确认函'}_{ts}.pdf"
+            filename = f"{title or '船期确认函'}{suffix}.pdf"
 
         elif doc_type == "report":
             pdf_bytes = generate_shipping_report(
                 title=title or "航运分析报告",
                 content=content or "（无正文内容）",
             )
-            filename = f"{title or '航运报告'}_{ts}.pdf"
+            filename = f"{title or '航运报告'}{suffix}.pdf"
 
         elif doc_type == "official":
             pdf_bytes = generate_official_document(
@@ -334,23 +335,23 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
                 content=content or "（无正文内容）",
                 recipient=recipient or "",
             )
-            filename = f"公文_{title or '通知'}_{ts}.pdf"
+            filename = f"{title or '公文'}{suffix}.pdf"
 
         elif doc_type == "generic":
             pdf_bytes = generate_generic_pdf(
                 title=title or "文档",
                 content=content or "（无正文内容）",
             )
-            filename = f"{title or '文档'}_{ts}.pdf"
+            filename = f"{title or '文档'}{suffix}.pdf"
 
         elif doc_type == "proposal":
             pdf_bytes = generate_proposal(
                 title=title or "数字化项目方案",
-                project_name=route or "",    # 复用 route 参数传递项目名称
-                department=consignor or "",  # 复用 consignor 参数传递申报单位
+                project_name=route or "",
+                department=consignor or "",
                 content=content or "（无正文内容）",
             )
-            filename = f"{title or '项目方案'}_{ts}.pdf"
+            filename = f"{title or '项目方案'}{suffix}.pdf"
 
         else:
             return (
