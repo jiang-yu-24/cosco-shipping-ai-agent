@@ -304,9 +304,6 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
 
     global _pdf_counter
     _pdf_counter += 1
-
-    global _pdf_counter
-    _pdf_counter += 1
     suffix = f"_{_pdf_counter}" if _pdf_counter > 1 else ""
 
     try:
