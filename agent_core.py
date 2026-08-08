@@ -83,6 +83,7 @@ def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = No
             ""
             "PDF 类型：schedule=船期确认 report=报告 official=公文 generic=通用 proposal=项目方案。"
             "关键：用户提 PDF 关键词立刻调用 generate_document。需多份时依次多次调用，不可省略。"
+            "title 参数必须包含具体航线/项目名，如「几内亚博凯-烟台船期确认函」，不能只写「船期确认函」。"
             ""
             "proposal 规则（严格）："
             "- route 参数填项目名称，consignor 填申报单位（必须是企业/部门名，不能是人名）"
