@@ -302,8 +302,11 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
         store_pdf,
     )
 
+    global _pdf_counter
+    _pdf_counter += 1
+
     now = datetime.now(_CST)
-    ts = now.strftime("%Y%m%d_%H%M%S")
+    ts = now.strftime(f"%Y%m%d_%H%M%S_{_pdf_counter:03d}")
 
     try:
         if doc_type == "schedule":
@@ -382,6 +385,7 @@ def compose_email(subject: str, body: str, recipient: str = "") -> str:
 
 
 _email_queue: list = []  # [(subject, body, recipient), ...]
+_pdf_counter: int = 0
 
 
 def get_emails() -> list:
