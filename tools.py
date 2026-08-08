@@ -320,7 +320,7 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
                 consignor=consignor or "待填写",
                 consignee=consignee or "待填写",
             )
-            filename = f"{title or '船期确认函'}{suffix}.pdf"
+            filename = f"{title or f'船期确认函_{route}'}{suffix}.pdf"
 
         elif doc_type == "report":
             pdf_bytes = generate_shipping_report(
@@ -351,7 +351,7 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
                 department=consignor or "",
                 content=content or "（无正文内容）",
             )
-            filename = f"{title or '项目方案'}{suffix}.pdf"
+            filename = f"{title or f'项目方案_{route}'}{suffix}.pdf"
 
         else:
             return (
