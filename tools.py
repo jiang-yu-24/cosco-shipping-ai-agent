@@ -317,9 +317,10 @@ def generate_document(doc_type: str, title: str = "", content: str = "",
                 consignor=consignor or "待填写",
                 consignee=consignee or "待填写",
             )
-            fname_title = title or "船期确认函"
-            fname_route = f"_{route}" if route else ""
-            filename = f"{fname_title}{fname_route}{suffix}.pdf"
+            fname_route = route or "未指定航线"
+            now = datetime.now(_CST)
+            date_str = now.strftime("%Y%m%d")
+            filename = f"{fname_route}船期确认函_{date_str}{suffix}.pdf"
 
         elif doc_type == "report":
             pdf_bytes = generate_shipping_report(
