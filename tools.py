@@ -30,6 +30,15 @@ _CST = timezone(timedelta(hours=8), name="Asia/Shanghai")
 _uploaded_file_content: str = ""
 _uploaded_file_name: str = ""
 
+# 文件暂存区镜像（供 Agent 工具读取）
+_vault_files: list = []  # [(filename, content_bytes), ...]
+
+
+def sync_vault(vault: list) -> None:
+    """供 app.py 调用，将文件暂存区同步到 tools 模块。"""
+    global _vault_files
+    _vault_files = [(f["name"], f["data"]) for f in vault]
+
 
 def set_uploaded_file(content: str, filename: str) -> None:
     """供 app.py 调用，将已解析的文件内容存入模块全局变量。"""
@@ -233,8 +242,15 @@ def search_file_content(keyword: str) -> str:
     """
     content, filename = get_uploaded_file_info()
 
+    if not content and _vault_files:
+        # 尝试从暂存区读取最近文件
+        filename = _vault_files[-1][0]
+        file_bytes = _vault_files[-1][1]
+        content = parse_file_content(file_bytes, filename)
+        # 不存入 uploaded_file，避免干扰当前上传状态
+
     if not content:
-        return "⚠️ 当前没有已上传的文件。请先在左侧上传一份文件（PDF/Excel/CSV/TXT）。"
+        return "⚠️ 当前没有可读取的文件。请先上传文件或确保文件暂存区有文件。"
 
     if not keyword.strip():
         return "⚠️ 请输入要搜索的关键词。"

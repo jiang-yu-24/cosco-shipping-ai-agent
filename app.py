@@ -11,7 +11,7 @@ if "DEEPSEEK_API_KEY" in st.secrets:
 from tools import (
     TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_DISPLAY_NAMES,
     parse_file_content, set_uploaded_file, get_uploaded_file_info,
-    get_emails,
+    get_emails, sync_vault,
 )
 from agent_core import run_agent
 
@@ -270,6 +270,9 @@ if loading_entry:
                     f"{file_content}\n\n"
                     f"【文件内容结束。用户的问题是】\n{query_text}"
                 )
+
+        # 同步文件暂存区到 Agent 工具层
+        sync_vault(st.session_state.file_vault)
 
         response = run_agent(
             user_query=query,
