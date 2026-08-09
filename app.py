@@ -41,7 +41,13 @@ st.markdown("""
     .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
     /* 示例按钮不换行 */
     button { white-space: nowrap !important; }
-    /* 加载启动画面：海浪图铺满html */
+    /* 深色模式适配 */
+    [data-theme="dark"] .stChatMessage p,
+    [data-theme="dark"] .stInfo p,
+    [data-theme="dark"] .stExpander summary { color: #ccc !important; }
+    [data-theme="dark"] .stInfo { background-color: rgba(255,255,255,0.08) !important; }
+    [data-theme="dark"] .stCodeBlock { background-color: #1e1e1e !important; border-color: #444 !important; }
+    [data-theme="dark"] .stCodeBlock code { color: #d4d4d4 !important; }
 </style>
 """, unsafe_allow_html=True)
 
