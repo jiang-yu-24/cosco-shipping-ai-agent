@@ -11,7 +11,7 @@ if "DEEPSEEK_API_KEY" in st.secrets:
 from tools import (
     TOOL_NAMES, TOOL_DESCRIPTIONS, TOOL_DISPLAY_NAMES,
     parse_file_content, set_uploaded_file, get_uploaded_file_info,
-    get_emails, sync_vault,
+    sync_vault,
 )
 from agent_core import run_agent
 
@@ -282,19 +282,13 @@ if loading_entry:
         # 同步文件暂存区到 Agent 工具层
         sync_vault(st.session_state.file_vault)
 
-        response = run_agent(
+        result = run_agent(
             user_query=query,
             chat_history=history_for_agent if history_for_agent else None,
         )
 
-        entry_emails = []
-        try:
-            entry_emails = get_emails()
-        except Exception:
-            pass
-
-        loading_entry["response"] = response
-        loading_entry["emails"] = entry_emails
+        loading_entry["response"] = result["response"]
+        loading_entry["emails"] = result.get("emails", [])
         if fb is not None:
             loading_entry["file_name"] = fn
             loading_entry["file_data"] = fb

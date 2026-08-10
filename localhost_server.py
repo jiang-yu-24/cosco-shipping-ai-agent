@@ -47,31 +47,28 @@ def chat():
             print(f"文件解析失败: {e}")
 
     try:
-        response = run_agent(user_query=user_query, chat_history=history if history else None)
+        result = run_agent(user_query=user_query, chat_history=history if history else None)
     except Exception as e:
         return jsonify({"error": f"Agent 调用失败: {str(e)}"}), 500
 
-    # 检查是否有新增的 PDF/邮件
-    result = {"response": response}
+    response_data = {"response": result["response"]}
 
     from pdf_utils import get_pdfs
     pdfs = get_pdfs()
     if pdfs:
         import base64 as b64
-        result["pdfs"] = [
+        response_data["pdfs"] = [
             {"name": name, "data": b64.b64encode(data).decode()}
             for data, name in pdfs
         ]
 
-    from tools import get_emails
-    emails = get_emails()
-    if emails:
-        result["emails"] = [
+    if result.get("emails"):
+        response_data["emails"] = [
             {"subject": s, "body": b, "recipient": r}
-            for s, b, r in emails
+            for s, b, r in result["emails"]
         ]
 
-    return jsonify(result)
+    return jsonify(response_data)
 
 
 if __name__ == "__main__":

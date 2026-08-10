@@ -55,7 +55,17 @@ _MAX_TOOL_CALL_ROUNDS = 5
 # 核心函数：run_agent
 # ============================================================
 
-def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = None) -> str:
+def _make_result(response_text: str) -> dict:
+    """构建返回值，同时排空 email 队列（避免 Cloud 多实例间丢失）。"""
+    from tools import get_emails
+    try:
+        emails = get_emails()
+    except Exception:
+        emails = []
+    return {"response": response_text, "emails": emails}
+
+
+def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = None) -> dict:
     """
     Agent 主入口函数 — 驱动完整的 ReAct 循环。
 
@@ -64,7 +74,7 @@ def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = No
         chat_history: list - 可选，历史对话消息列表（OpenAI messages 格式）
 
     返回:
-        str - Agent 的最终回答文本
+        dict - {"response": str, "emails": list}
     """
     # ---------- 构建初始消息列表 ----------
     # 消息列表（messages）是 OpenAI Chat Completions API 的核心数据结构
@@ -136,7 +146,7 @@ def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = No
             )
         except Exception as e:
             # 网络异常、API Key无效、额度不足等场景
-            return f"❌ 服务暂时不可用，请稍后重试。"
+            return _make_result("❌ 服务暂时不可用，请稍后重试。")
 
         # 提取模型返回的 assistant 消息
         assistant_msg = response.choices[0].message
@@ -155,7 +165,7 @@ def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = No
         if assistant_msg.tool_calls is None:
             # 模型没有请求工具调用，直接返回文本回答
             # 这是 ReAct 循环的"出口"——模型认为已有足够信息回答用户
-            return assistant_msg.content or "（模型未返回有效内容，请重试）"
+            return _make_result(assistant_msg.content or "（模型未返回有效内容，请重试）")
 
         # ---------- 有工具调用请求：进入 ACT + OBSERVE 阶段 ----------
         tool_round += 1
@@ -281,6 +291,6 @@ def run_agent(user_query: str, chat_history: Optional[List[Dict[str, Any]]] = No
             messages=messages,
             temperature=0.3,
         )
-        return final_response.choices[0].message.content or "（无法生成有效回答，请重试）"
+        return _make_result(final_response.choices[0].message.content or "（无法生成有效回答，请重试）")
     except Exception as e:
-        return f"❌ Agent 兜底调用失败：{str(e)}"
+        return _make_result(f"❌ Agent 兜底调用失败：{str(e)}")
