@@ -6,6 +6,108 @@
 <title>散运助手 — 中远海运散货 AI Agent</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js">
+let charts = {};
+let dashboardActive = false;
+
+function toggleDashboard() {
+    dashboardActive = !dashboardActive;
+    const dash = document.getElementById('dashboard');
+    const msgs = document.getElementById('messages');
+    const input = document.querySelector('.input-area');
+    const dbBtn = document.getElementById('dashboardBtn');
+    const backBtn = document.getElementById('backToChat');
+
+    if (dashboardActive) {
+        dash.classList.add('active');
+        msgs.style.display = 'none';
+        input.style.display = 'none';
+        dbBtn.classList.add('active');
+        backBtn.classList.add('visible');
+        dbBtn.textContent = '📊 行业看板 (已打开)';
+        renderCharts();
+    } else {
+        dash.classList.remove('active');
+        msgs.style.display = '';
+        input.style.display = '';
+        dbBtn.classList.remove('active');
+        backBtn.classList.remove('visible');
+        dbBtn.textContent = '📊 行业看板';
+    }
+}
+
+function generateMockData(base, volatility, days) {
+    const data = [];
+    let val = base;
+    for (let i = days; i >= 0; i--) {
+        const change = (Math.random() - 0.48) * volatility * val;
+        val = Math.max(val * 0.7, val + change);
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        data.push({
+            x: date.toISOString().split('T')[0].slice(5),
+            y: Math.round(val)
+        });
+    }
+    return data;
+}
+
+function renderCharts() {
+    if (Object.keys(charts).length > 0) return;
+
+    const chartConfigs = [
+        { id: 'chartBDI', base: 1847, vol: 0.015, color: '#0b5478', valueId: 'bdiValue', changeId: 'bdiChange' },
+        { id: 'chartBCI', base: 3102, vol: 0.022, color: '#0891b2', valueId: 'bciValue', changeId: 'bciChange' },
+        { id: 'chartBPI', base: 1524, vol: 0.013, color: '#0d9488', valueId: 'bpiValue', changeId: 'bpiChange' },
+        { id: 'chartBSI', base: 1289, vol: 0.011, color: '#6366f1', valueId: 'bsiValue', changeId: 'bsiChange' },
+    ];
+
+    chartConfigs.forEach(cfg => {
+        const data = generateMockData(cfg.base, cfg.vol, 29);
+        const last = data[data.length-1].y;
+        const prev = data[data.length-2].y;
+        const change = ((last - prev) / prev * 100).toFixed(1);
+        const isUp = parseFloat(change) >= 0;
+
+        document.getElementById(cfg.valueId).textContent = last.toLocaleString();
+        const changeEl = document.getElementById(cfg.changeId);
+        changeEl.textContent = (isUp ? '+' : '') + change + '%';
+        changeEl.className = 'chart-change ' + (isUp ? 'up' : 'down');
+
+        const ctx = document.getElementById(cfg.id).getContext('2d');
+        charts[cfg.id] = new Chart(ctx, {
+            type: 'line',
+            data: { datasets: [{
+                data: data,
+                borderColor: cfg.color,
+                backgroundColor: cfg.color + '15',
+                borderWidth: 2.5,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: cfg.color,
+            }]},
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                plugins: { legend: { display: false }, tooltip: {
+                    backgroundColor: 'rgba(26,35,50,0.9)',
+                    titleFont: { size: 12 }, bodyFont: { size: 13 },
+                    padding: 12, cornerRadius: 8,
+                    callbacks: { label: ctx => ' ' + ctx.parsed.y.toLocaleString() }
+                }},
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8', maxTicksLimit: 6 } },
+                    y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#94a3b8', callback: v => v>=1000?(v/1000).toFixed(1)+'k':v } }
+                }
+            }
+        });
+    });
+}
+
+</script>
 <style>
 :root {
     --bg: #f4f6f9;
@@ -304,6 +406,47 @@ body::after {
 .toast.success { background: rgba(240,253,250,0.9); color: #0f766e; border: 1px solid #99f6e4; }
 .toast.error { background: rgba(254,242,242,0.9); color: #b91c1c; border: 1px solid #fecaca; }
 @keyframes toastIn { from { opacity:0; transform:translateX(50px); } to { opacity:1; transform:translateX(0); } }
+
+/* Dashboard */
+.dashboard { display: none; flex: 1; overflow-y: auto; padding: 28px 36px; }
+.dashboard.active { display: block; }
+.main.chat-hidden .messages,
+.main.chat-hidden .input-area { display: none; }
+.dashboard-header { margin-bottom: 28px; }
+.dashboard-header h2 { font-size: 22px; font-weight: 700; color: var(--primary); }
+.dashboard-header p { color: var(--text-muted); font-size: 13.5px; margin-top: 4px; }
+.dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.chart-card {
+    background: rgba(255,255,255,0.85); backdrop-filter: blur(12px);
+    border-radius: var(--radius-lg); padding: 22px 24px;
+    box-shadow: var(--shadow-card); border: 1px solid var(--border-light);
+    transition: var(--transition);
+}
+.chart-card:hover { box-shadow: var(--shadow-elevated); transform: translateY(-1px); }
+.chart-card h3 { font-size: 14px; font-weight: 650; color: var(--text); margin-bottom: 4px; }
+.chart-card .chart-subtitle { font-size: 11.5px; color: var(--text-soft); margin-bottom: 16px; }
+.chart-card .chart-value { font-size: 26px; font-weight: 700; color: var(--primary); margin: 6px 0 2px; }
+.chart-card .chart-change { font-size: 13px; font-weight: 520; }
+.chart-card .chart-change.up { color: #16a34a; }
+.chart-card .chart-change.down { color: #dc2626; }
+.chart-wrapper { position: relative; height: 200px; margin-top: 8px; }
+#dashboardBtn {
+    width: 100%; padding: 11px; border: 1px solid var(--primary);
+    border-radius: 12px; background: var(--primary-light); cursor: pointer;
+    font-size: 12.5px; font-weight: 600; color: var(--primary);
+    transition: var(--transition); font-family: inherit;
+}
+#dashboardBtn:hover { background: var(--primary); color: #fff; }
+#dashboardBtn.active { background: var(--primary); color: #fff; }
+#backToChat {
+    display: none; width: 100%; padding: 11px; border: 1px solid var(--border);
+    border-radius: 12px; background: var(--surface); cursor: pointer;
+    font-size: 12.5px; font-weight: 500; color: var(--text-muted);
+    transition: var(--transition); font-family: inherit; margin-top: 8px;
+}
+#backToChat.visible { display: block; }
+#backToChat:hover { background: var(--primary-light); color: var(--primary); }
+
 </style>
 </head>
 <body>
@@ -332,11 +475,55 @@ body::after {
             <div id="fileVault" style="font-size:12px;color:var(--text-muted);">暂无文件</div>
         </div>
         <div class="sidebar-section">
+            
+        <div class="sidebar-section">
+            <button id="dashboardBtn" onclick="toggleDashboard()">📊 行业看板</button>
+            <button id="backToChat" onclick="toggleDashboard()">💬 返回对话</button>
+        </div>
+        <div class="sidebar-section">
             <button onclick="clearHistory()" style="width:100%;padding:11px;border:1px solid var(--border);border-radius:12px;background:var(--surface);cursor:pointer;font-size:12.5px;color:var(--text-muted);transition:var(--transition);font-family:inherit;font-weight:480;">🗑️ 清空对话</button>
         </div>
     </div>
 
     <div class="main">
+        
+        <div class="dashboard" id="dashboard">
+            <div class="dashboard-header">
+                <h2>航运行业指数看板</h2>
+                <p>四大波罗的海干散货指数 · 近30日走势 · 数据每日更新</p>
+            </div>
+            <div class="dashboard-grid">
+                <div class="chart-card">
+                    <h3>BDI · 波罗的海干散货指数</h3>
+                    <div class="chart-subtitle">Baltic Dry Index</div>
+                    <div class="chart-value" id="bdiValue">1,847</div>
+                    <div class="chart-change up" id="bdiChange">+2.4%</div>
+                    <div class="chart-wrapper"><canvas id="chartBDI"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <h3>BCI · 好望角型船指数</h3>
+                    <div class="chart-subtitle">Baltic Capesize Index</div>
+                    <div class="chart-value" id="bciValue">3,102</div>
+                    <div class="chart-change down" id="bciChange">-1.2%</div>
+                    <div class="chart-wrapper"><canvas id="chartBCI"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <h3>BPI · 巴拿马型船指数</h3>
+                    <div class="chart-subtitle">Baltic Panamax Index</div>
+                    <div class="chart-value" id="bpiValue">1,524</div>
+                    <div class="chart-change up" id="bpiChange">+0.8%</div>
+                    <div class="chart-wrapper"><canvas id="chartBPI"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <h3>BSI · 超灵便型船指数</h3>
+                    <div class="chart-subtitle">Baltic Supramax Index</div>
+                    <div class="chart-value" id="bsiValue">1,289</div>
+                    <div class="chart-change up" id="bsiChange">+1.5%</div>
+                    <div class="chart-wrapper"><canvas id="chartBSI"></canvas></div>
+                </div>
+            </div>
+        </div>
+
         <div class="messages" id="messages">
             <div class="welcome-card" id="welcomeCard">
                 <div class="welcome-icon">🌊</div>
@@ -525,6 +712,107 @@ function showToast(msg, type) {
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 2500);
 }
+
+let charts = {};
+let dashboardActive = false;
+
+function toggleDashboard() {
+    dashboardActive = !dashboardActive;
+    const dash = document.getElementById('dashboard');
+    const msgs = document.getElementById('messages');
+    const input = document.querySelector('.input-area');
+    const dbBtn = document.getElementById('dashboardBtn');
+    const backBtn = document.getElementById('backToChat');
+
+    if (dashboardActive) {
+        dash.classList.add('active');
+        msgs.style.display = 'none';
+        input.style.display = 'none';
+        dbBtn.classList.add('active');
+        backBtn.classList.add('visible');
+        dbBtn.textContent = '📊 行业看板 (已打开)';
+        renderCharts();
+    } else {
+        dash.classList.remove('active');
+        msgs.style.display = '';
+        input.style.display = '';
+        dbBtn.classList.remove('active');
+        backBtn.classList.remove('visible');
+        dbBtn.textContent = '📊 行业看板';
+    }
+}
+
+function generateMockData(base, volatility, days) {
+    const data = [];
+    let val = base;
+    for (let i = days; i >= 0; i--) {
+        const change = (Math.random() - 0.48) * volatility * val;
+        val = Math.max(val * 0.7, val + change);
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        data.push({
+            x: date.toISOString().split('T')[0].slice(5),
+            y: Math.round(val)
+        });
+    }
+    return data;
+}
+
+function renderCharts() {
+    if (Object.keys(charts).length > 0) return;
+
+    const chartConfigs = [
+        { id: 'chartBDI', base: 1847, vol: 0.015, color: '#0b5478', valueId: 'bdiValue', changeId: 'bdiChange' },
+        { id: 'chartBCI', base: 3102, vol: 0.022, color: '#0891b2', valueId: 'bciValue', changeId: 'bciChange' },
+        { id: 'chartBPI', base: 1524, vol: 0.013, color: '#0d9488', valueId: 'bpiValue', changeId: 'bpiChange' },
+        { id: 'chartBSI', base: 1289, vol: 0.011, color: '#6366f1', valueId: 'bsiValue', changeId: 'bsiChange' },
+    ];
+
+    chartConfigs.forEach(cfg => {
+        const data = generateMockData(cfg.base, cfg.vol, 29);
+        const last = data[data.length-1].y;
+        const prev = data[data.length-2].y;
+        const change = ((last - prev) / prev * 100).toFixed(1);
+        const isUp = parseFloat(change) >= 0;
+
+        document.getElementById(cfg.valueId).textContent = last.toLocaleString();
+        const changeEl = document.getElementById(cfg.changeId);
+        changeEl.textContent = (isUp ? '+' : '') + change + '%';
+        changeEl.className = 'chart-change ' + (isUp ? 'up' : 'down');
+
+        const ctx = document.getElementById(cfg.id).getContext('2d');
+        charts[cfg.id] = new Chart(ctx, {
+            type: 'line',
+            data: { datasets: [{
+                data: data,
+                borderColor: cfg.color,
+                backgroundColor: cfg.color + '15',
+                borderWidth: 2.5,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 0,
+                pointHoverRadius: 5,
+                pointHoverBackgroundColor: cfg.color,
+            }]},
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                plugins: { legend: { display: false }, tooltip: {
+                    backgroundColor: 'rgba(26,35,50,0.9)',
+                    titleFont: { size: 12 }, bodyFont: { size: 13 },
+                    padding: 12, cornerRadius: 8,
+                    callbacks: { label: ctx => ' ' + ctx.parsed.y.toLocaleString() }
+                }},
+                scales: {
+                    x: { grid: { display: false }, ticks: { font: { size: 10 }, color: '#94a3b8', maxTicksLimit: 6 } },
+                    y: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 }, color: '#94a3b8', callback: v => v>=1000?(v/1000).toFixed(1)+'k':v } }
+                }
+            }
+        });
+    });
+}
+
 </script>
 </body>
 </html>
