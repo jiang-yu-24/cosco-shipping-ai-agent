@@ -147,14 +147,14 @@ if st.session_state.history:
                     key=f"hist_dl_{i}",
                 )
             # 该回复关联的邮件
-            for j, (subject, body, recipient) in enumerate(h.get("emails", [])):
+            for subject, body, recipient in h.get("emails", []):
                 with st.container(border=True):
                     if recipient:
                         st.caption(f"收件人：{recipient}")
                     st.caption("主题")
-                    st.text_area(f"subj_{i}_{j}", value=subject, height=68, label_visibility="collapsed", key=f"email_subj_{i}_{j}")
+                    st.code(subject, language="")
                     st.caption("正文")
-                    st.text_area(f"body_{i}_{j}", value=body, height=160, label_visibility="collapsed", key=f"email_body_{i}_{j}")
+                    st.code(body, language="")
 else:
     st.markdown("欢迎使用散运助手！请在下方框内输入指令。")
 
