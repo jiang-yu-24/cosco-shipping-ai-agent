@@ -17,19 +17,22 @@ function toggleDashboard() {
     const input = document.querySelector('.input-area');
     const dbBtn = document.getElementById('dashboardBtn');
     const backBtn = document.getElementById('backToChat');
+    const welcome = document.getElementById('welcomeCard');
 
     if (dashboardActive) {
-        dash.classList.add('active');
+        dash.style.display = 'block';
         msgs.style.display = 'none';
-        input.style.display = 'none';
+        if (input) input.style.display = 'none';
+        if (welcome) welcome.style.display = 'none';
         dbBtn.classList.add('active');
         backBtn.classList.add('visible');
         dbBtn.textContent = '📊 行业看板 (已打开)';
-        renderCharts();
+        setTimeout(renderCharts, 100);
     } else {
-        dash.classList.remove('active');
+        dash.style.display = 'none';
         msgs.style.display = '';
-        input.style.display = '';
+        if (input) input.style.display = '';
+        if (welcome) welcome.style.display = '';
         dbBtn.classList.remove('active');
         backBtn.classList.remove('visible');
         dbBtn.textContent = '📊 行业看板';
@@ -409,7 +412,7 @@ body::after {
 
 /* Dashboard */
 .dashboard { display: none; flex: 1; overflow-y: auto; padding: 28px 36px; }
-.dashboard.active { display: block; }
+.dashboard.active { display: block !important; flex: 1; }
 .main.chat-hidden .messages,
 .main.chat-hidden .input-area { display: none; }
 .dashboard-header { margin-bottom: 28px; }
@@ -723,19 +726,22 @@ function toggleDashboard() {
     const input = document.querySelector('.input-area');
     const dbBtn = document.getElementById('dashboardBtn');
     const backBtn = document.getElementById('backToChat');
+    const welcome = document.getElementById('welcomeCard');
 
     if (dashboardActive) {
-        dash.classList.add('active');
+        dash.style.display = 'block';
         msgs.style.display = 'none';
-        input.style.display = 'none';
+        if (input) input.style.display = 'none';
+        if (welcome) welcome.style.display = 'none';
         dbBtn.classList.add('active');
         backBtn.classList.add('visible');
         dbBtn.textContent = '📊 行业看板 (已打开)';
-        renderCharts();
+        setTimeout(renderCharts, 100);
     } else {
-        dash.classList.remove('active');
+        dash.style.display = 'none';
         msgs.style.display = '';
-        input.style.display = '';
+        if (input) input.style.display = '';
+        if (welcome) welcome.style.display = '';
         dbBtn.classList.remove('active');
         backBtn.classList.remove('visible');
         dbBtn.textContent = '📊 行业看板';
